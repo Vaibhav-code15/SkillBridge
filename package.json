@@ -1,0 +1,10 @@
+{
+  "name": "skillbridge",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/src/input.css -o ./static/css/app.css --minify",
+    "watch:css": "tailwindcss -i ./static/src/input.css -o ./static/css/app.css --watch"
+  },
+  "devDependencies": {"@tailwindcss/cli": "4.1.18", "tailwindcss": "4.1.18"},
+  "dependencies": {"chart.js": "4.5.1"}
+}
