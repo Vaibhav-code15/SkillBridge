@@ -6,6 +6,10 @@ __pycache__/
 .coverage
 htmlcov/
 db.sqlite3
+*.sqlite3
+*.sqlite
 .env
+.env.*
+!.env.example
 node_modules/
 staticfiles/

@@ -6,7 +6,10 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    # The development server serves static files only with DEBUG enabled.
+    # WSGI/ASGI and all other management commands retain production defaults.
+    default_settings = "config.settings_dev" if "runserver" in sys.argv[1:] else "config.settings"
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", default_settings)
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
