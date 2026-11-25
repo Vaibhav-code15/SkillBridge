@@ -4,6 +4,9 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from matching.advanced import suggest_improvements
+
+from .matching import match_student, requirements_for, skill_levels_for
 from .models import Application, Notification, Opportunity
 
 
@@ -27,6 +30,48 @@ def profile_completeness(
         ("At least one certification", certifications_count >= 1, "certifications"),
     )
     return {"score": 20 * sum(item[1] for item in checklist), "checklist": checklist}
+
+
+def recommend_opportunities(student, n):
+    levels = skill_levels_for(student)
+    active = (
+        Application.objects.filter(student=student)
+        .exclude(status=Application.Status.WITHDRAWN)
+        .values("opportunity_id")
+    )
+    opportunities = (
+        Opportunity.objects.is_open()
+        .exclude(pk__in=active)
+        .select_related("faculty")
+        .prefetch_related("requirements__skill")
+    )
+    results = []
+    for item in opportunities:
+        item.match_result = match_student(requirements_for(item), student, skill_levels=levels)
+        if item.match_result.score is not None and item.match_result.score > 0:
+            item.matched_skills = [
+                skill.name for skill in item.match_result.skills if skill.status == "matched"
+            ]
+            results.append(item)
+    return sorted(
+        results, key=lambda item: (-item.match_result.score, item.deadline, item.title, item.pk)
+    )[:n]
+
+
+def student_improvements(student):
+    levels = skill_levels_for(student)
+    opportunities = Opportunity.objects.is_open().prefetch_related("requirements__skill")
+    items = suggest_improvements(levels, [requirements_for(item) for item in opportunities])
+    existing = {item.skill_id: item for item in student.student_skills.all()}
+    return [
+        {
+            "item": item,
+            "gain": float(item.gain),
+            "average": float(item.gain / item.opportunities_affected),
+            "existing": existing.get(item.skill_id),
+        }
+        for item in items
+    ]
 
 
 @transaction.atomic

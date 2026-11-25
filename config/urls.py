@@ -29,6 +29,8 @@ urlpatterns = [
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("applications/", views.my_applications, name="my_applications"),
+    path("recommendations/", views.recommendations, name="recommendations"),
+    path("improvements/", views.improvements, name="improvements"),
     path(
         "applications/<int:pk>/withdraw/", views.application_withdraw, name="application_withdraw"
     ),

@@ -42,6 +42,8 @@ from .services import (
     close_expired_opportunities,
     decide_application,
     profile_completeness,
+    recommend_opportunities,
+    student_improvements,
     withdraw_application,
 )
 
@@ -107,6 +109,7 @@ def dashboard(request):
                 "projects": request.user.projects.all(),
                 "certifications": request.user.certifications.all(),
                 "completeness": student_completeness(request.user, profile),
+                "recommendations": recommend_opportunities(request.user, 3),
             },
         )
     if request.user.role == User.Role.FACULTY:
@@ -513,3 +516,19 @@ def notification_read(request, pk):
 def notification_read_all(request):
     request.user.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
     return redirect("notification_inbox")
+
+
+@role_required("student")
+def recommendations(request):
+    return render(
+        request,
+        "recommendations.html",
+        {"recommendations": recommend_opportunities(request.user, 10)},
+    )
+
+
+@role_required("student")
+def improvements(request):
+    return render(
+        request, "improvements.html", {"improvements": student_improvements(request.user)}
+    )
