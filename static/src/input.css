@@ -3,5 +3,6 @@
 @import "../css/premium.css";
 @import "./tokens.css";
 @import "./components.css";
+@import "./discover.css";
 @source "../../templates";
 @source "../js";

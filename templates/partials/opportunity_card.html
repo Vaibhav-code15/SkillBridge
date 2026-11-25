@@ -1,0 +1,8 @@
+<article class="card opportunity-card discover-card type-{{ opportunity.type }}" data-tilt>
+  <div class="opportunity-card-meta"><span class="type-icon" aria-hidden="true">{% if opportunity.type == 'research' %}⌘{% elif opportunity.type == 'project' %}✧{% else %}⌁{% endif %}</span>{% if user.role == 'student' and not user.is_superuser %}{% include 'partials/score_ring.html' with score=opportunity.match_result.score %}{% endif %}</div>
+  <span class="type-label">{{ opportunity.get_type_display }}</span><h2><a href="{% url 'opportunity_detail' opportunity.pk %}">{{ opportunity.title }}</a></h2>
+  <p>{{ opportunity.description|truncatechars:160 }}</p>
+  <div class="skill-chips">{% for requirement in opportunity.requirements.all|slice:':3' %}<span class="skill-chip">{{ requirement.skill.name }} · {{ requirement.minimum_proficiency }}/4</span>{% empty %}<span class="muted">No required skills</span>{% endfor %}{% if opportunity.requirements.count > 3 %}<span class="skill-chip">+{{ opportunity.requirements.count|add:'-3' }}</span>{% endif %}</div>
+  <div class="opportunity-meta"><span>{{ opportunity.faculty.get_full_name|default:opportunity.faculty.username }}</span><span>{% if opportunity.is_open %}Due {{ opportunity.deadline|date:'M j, Y' }} · {{ opportunity.deadline|timeuntil }} left{% else %}Closed{% endif %}</span></div>
+  <div class="opportunity-card-footer"><a href="{% url 'opportunity_detail' opportunity.pk %}">View opportunity <span aria-hidden="true">↗</span></a></div>
+</article>
