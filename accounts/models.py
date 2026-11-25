@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -69,6 +70,11 @@ class Certification(models.Model):
     link = models.URLField(blank=True)
 
 
+class OpportunityQuerySet(models.QuerySet):
+    def is_open(self):
+        return self.filter(status=Opportunity.Status.PUBLISHED, deadline__gte=timezone.localdate())
+
+
 class Opportunity(models.Model):
     class Type(models.TextChoices):
         INTERNSHIP = "internship", "Internship"
@@ -87,6 +93,7 @@ class Opportunity(models.Model):
     deadline = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     created_at = models.DateTimeField(auto_now_add=True)
+    objects = OpportunityQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
@@ -100,6 +107,10 @@ class Opportunity(models.Model):
                 name="opportunity_valid_status",
             ),
         ]
+
+    @property
+    def is_open(self):
+        return self.status == self.Status.PUBLISHED and self.deadline >= timezone.localdate()
 
 
 class RequiredSkill(models.Model):
@@ -123,4 +134,29 @@ class RequiredSkill(models.Model):
                 condition=models.Q(weight__gte=1, weight__lte=100),
                 name="required_skill_weight_range",
             ),
+        ]
+
+
+class Application(models.Model):
+    class Status(models.TextChoices):
+        APPLIED = "applied", "Applied"
+
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="applications")
+    opportunity = models.ForeignKey(
+        Opportunity, on_delete=models.CASCADE, related_name="applications"
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)
+    applied_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["applied_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["student", "opportunity"], name="unique_student_opportunity_application"
+            ),
+            models.CheckConstraint(condition=models.Q(status="applied"), name="application_status"),
+        ]
+        indexes = [
+            models.Index(fields=["opportunity", "applied_at"], name="application_opp_time"),
+            models.Index(fields=["student", "applied_at"], name="application_student_time"),
         ]

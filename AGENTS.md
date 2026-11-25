@@ -8,4 +8,4 @@ Keep main stable. Do not rewrite published history. Record only real collaborati
 
 ## Current sprint
 
-Implement Sprint 1 only. Sprint 2 belongs to Sarah; do not implement or attribute work on her behalf. The owner has authorised Sprint 1 commits, pushes, and TDD phase transitions in advance. Preserve separate RED–GREEN–REFACTOR commits and CI runs. Merge only after successful CI and required human review.
+Implement Sprint 2 only (US11-US17, 29 points), by Sarah Abbas. Do not implement Sprint 3. The owner has authorised Sprint 2 commits, pushes, and TDD phase transitions in advance. Preserve separate RED–GREEN–REFACTOR commits and CI runs. Merge only after successful CI and required human review.

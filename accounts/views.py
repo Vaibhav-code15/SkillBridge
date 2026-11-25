@@ -3,10 +3,14 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.http import HttpResponseForbidden
+from django.db.models import Prefetch, Q
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+
+from matching import rank_candidates
 
 from .forms import (
     CertificationForm,
@@ -18,7 +22,9 @@ from .forms import (
     SkillForm,
     StudentSkillForm,
 )
+from .matching import match_student, requirements_for, skill_levels_for
 from .models import (
+    Application,
     Certification,
     Opportunity,
     Project,
@@ -168,10 +174,183 @@ def opportunity_edit(request, pk=None):
     )
 
 
-@role_required("faculty")
+@login_required
 def opportunity_detail(request, pk):
-    item = get_object_or_404(Opportunity, pk=pk, faculty=request.user)
-    return render(request, "opportunity.html", {"opportunity": item})
+    item = get_object_or_404(Opportunity.objects.prefetch_related("requirements__skill"), pk=pk)
+    is_student = request.user.role == User.Role.STUDENT and not request.user.is_superuser
+    is_owner = request.user.role == User.Role.FACULTY and item.faculty_id == request.user.pk
+    if is_student:
+        if item.status == Opportunity.Status.DRAFT:
+            raise Http404
+    elif request.user.is_superuser:
+        pass
+    elif request.user.role == User.Role.FACULTY:
+        if not is_owner:
+            raise Http404
+    else:
+        return HttpResponseForbidden("You do not have access to this page.")
+
+    fit = None
+    application = None
+    fit_groups = []
+    has_skills = False
+    if is_student:
+        levels = skill_levels_for(request.user)
+        has_skills = bool(levels)
+        fit = match_student(requirements_for(item), request.user, skill_levels=levels)
+        fit_groups = [
+            {
+                "label": label,
+                "skills": [skill for skill in fit.skills if skill.status == status],
+            }
+            for status, label in (
+                ("matched", "Matched"),
+                ("improvable", "Improvable"),
+                ("missing", "Missing"),
+            )
+        ]
+        application = Application.objects.filter(student=request.user, opportunity=item).first()
+    return render(
+        request,
+        "opportunity.html",
+        {
+            "opportunity": item,
+            "is_student": is_student,
+            "is_owner": is_owner,
+            "fit": fit,
+            "fit_groups": fit_groups,
+            "has_skills": has_skills,
+            "application": application,
+        },
+    )
+
+
+@login_required
+def opportunity_list(request):
+    if not request.user.is_superuser and request.user.role not in (
+        User.Role.STUDENT,
+        User.Role.FACULTY,
+    ):
+        return HttpResponseForbidden("You do not have access to this page.")
+
+    opportunities = (
+        Opportunity.objects.is_open()
+        .select_related("faculty")
+        .prefetch_related("requirements__skill")
+    )
+    if request.user.role == User.Role.FACULTY and not request.user.is_superuser:
+        opportunities = opportunities.filter(faculty=request.user)
+    search = request.GET.get("q", "").strip()
+    if search:
+        opportunities = opportunities.filter(
+            Q(title__icontains=search)
+            | Q(description__icontains=search)
+            | Q(requirements__skill__name__icontains=search)
+        ).distinct()
+
+    selected_type = request.GET.get("type", "")
+    allowed_types = {choice for choice, _ in Opportunity.Type.choices}
+    if selected_type in allowed_types:
+        opportunities = opportunities.filter(type=selected_type)
+    else:
+        selected_type = ""
+
+    selected_skill = request.GET.get("skill", "")
+    active_skills = Skill.objects.filter(active=True)
+    if selected_skill.isdecimal() and active_skills.filter(pk=selected_skill).exists():
+        opportunities = opportunities.filter(requirements__skill_id=selected_skill).distinct()
+    else:
+        selected_skill = ""
+
+    page_obj = Paginator(opportunities, 9).get_page(request.GET.get("page"))
+    match_scores = {}
+    if request.user.role == User.Role.STUDENT and not request.user.is_superuser:
+        student_levels = skill_levels_for(request.user)
+        for item in page_obj.object_list:
+            item.match_result = match_student(
+                requirements_for(item), request.user, skill_levels=student_levels
+            )
+            match_scores[item.pk] = item.match_result
+
+    return render(
+        request,
+        "opportunity_list.html",
+        {
+            "page_obj": page_obj,
+            "search": search,
+            "selected_type": selected_type,
+            "selected_skill": selected_skill,
+            "opportunity_types": Opportunity.Type.choices,
+            "active_skills": active_skills,
+            "match_scores": match_scores,
+        },
+    )
+
+
+@role_required("student")
+@require_POST
+def opportunity_apply(request, pk):
+    item = get_object_or_404(Opportunity, pk=pk)
+    if item.status == Opportunity.Status.DRAFT:
+        raise Http404
+    if not item.is_open:
+        messages.error(request, "Applications are closed for this opportunity.")
+        return redirect("opportunity_detail", pk=item.pk)
+    if Application.objects.filter(student=request.user, opportunity=item).exists():
+        messages.info(request, "You have already applied to this opportunity.")
+        return redirect("opportunity_detail", pk=item.pk)
+    try:
+        with transaction.atomic():
+            Application.objects.create(student=request.user, opportunity=item)
+    except IntegrityError:
+        messages.info(request, "You have already applied to this opportunity.")
+    else:
+        messages.success(request, "Your application was submitted.")
+    return redirect("opportunity_detail", pk=item.pk)
+
+
+@role_required("faculty")
+def opportunity_applicants(request, pk):
+    item = get_object_or_404(
+        Opportunity.objects.prefetch_related("requirements__skill"),
+        pk=pk,
+        faculty=request.user,
+    )
+    applications = list(
+        Application.objects.filter(opportunity=item)
+        .select_related("student", "student__profile")
+        .prefetch_related(
+            Prefetch(
+                "student__student_skills", queryset=StudentSkill.objects.select_related("skill")
+            ),
+            "student__projects",
+            "student__certifications",
+        )
+    )
+    requirements = requirements_for(item)
+    results = {}
+    for application in applications:
+        results[application.pk] = match_student(requirements, application.student)
+    ranked = rank_candidates(
+        applications,
+        score_of=lambda application: results[application.pk].score,
+        applied_at_of=lambda application: application.applied_at,
+        applicant_name_of=lambda application: (
+            application.student.get_full_name().strip() or application.student.username
+        ),
+        stable_id_of=lambda application: application.pk,
+    )
+    applicants = []
+    for rank, application in enumerate(ranked, start=1):
+        application.rank = rank
+        application.match_result = results[application.pk]
+        application.student_profile = getattr(application.student, "profile", None)
+        applicants.append(application)
+    return render(
+        request,
+        "opportunity_applicants.html",
+        {"opportunity": item, "applicants": applicants},
+    )
 
 
 @role_required("faculty")

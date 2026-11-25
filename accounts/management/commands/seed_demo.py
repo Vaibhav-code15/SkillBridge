@@ -1,10 +1,12 @@
 import os
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import (
+    Application,
     Certification,
     Opportunity,
     Project,
@@ -122,7 +124,7 @@ class Command(BaseCommand):
                         defaults={
                             "description": "A fictional opportunity to collaborate on a practical academic challenge.",
                             "type": ["research", "internship", "project"][n],
-                            "deadline": date.today() + timedelta(days=45 + n * 10),
+                            "deadline": timezone.localdate() + timedelta(days=45 + n * 10),
                             "status": "published",
                         },
                     )
@@ -132,6 +134,33 @@ class Command(BaseCommand):
                             skill=skills[(i + n + index) % len(skills)],
                             defaults={"minimum_proficiency": 2, "weight": 3 + index},
                         )
+        demo_students = list(
+            User.objects.filter(username__startswith="demo_student_").order_by("username")
+        )
+        demo_opportunities = list(
+            Opportunity.objects.filter(
+                faculty__username__startswith="demo_faculty_", status=Opportunity.Status.PUBLISHED
+            ).order_by("pk")
+        )
+        first_opportunity_id = demo_opportunities[0].pk if demo_opportunities else None
+        for opportunity in demo_opportunities:
+            for student in demo_students:
+                student_number = int(student.username.rsplit("_", 1)[1])
+                is_tied_seed_application = (
+                    opportunity.pk == first_opportunity_id and student_number in (1, 2)
+                )
+                if not is_tied_seed_application and (student_number + opportunity.pk) % 3 == 0:
+                    continue
+                applied_at = datetime(2026, 10, 1, 12) + timedelta(
+                    days=(student_number + opportunity.pk) % 14
+                )
+                if opportunity.pk == first_opportunity_id and student_number in (1, 2):
+                    applied_at = datetime(2026, 10, 1, 12)
+                Application.objects.get_or_create(
+                    student=student,
+                    opportunity=opportunity,
+                    defaults={"applied_at": timezone.make_aware(applied_at)},
+                )
         self.stdout.write(
             self.style.SUCCESS(
                 "Demo data ready. All demo accounts use the following local password for this run:"

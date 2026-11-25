@@ -1,6 +1,6 @@
 # SkillBridge
 
-SkillBridge is a Django application for students to maintain academic profiles and for faculty to describe opportunities and their required skills. Sprint 1 includes student and faculty registration, authentication, student skills, projects and certifications, faculty opportunity management, and an administrator skill catalogue. Matching, applications and recommendations are upcoming in later sprints.
+SkillBridge is a Django application for students to maintain academic profiles and for faculty to describe opportunities and their required skills. Sprint 1 includes student and faculty registration, authentication, student skills, projects and certifications, faculty opportunity management, and an administrator skill catalogue. Sprint 2 adds opportunity discovery, search and filters, exact weighted skill matching, fit explanations, student applications, and ranked applicant views for owning faculty. Recommendations and other Sprint 3 stories remain upcoming.
 
 Registration collects an email address, but authentication currently uses a username and password, rather than the email-based login in the earlier plan. Faculty registration is direct and does not verify institutional affiliation. Administrators are created with `createsuperuser`, not through public registration. Desktop and mobile visual review remains outstanding.
 

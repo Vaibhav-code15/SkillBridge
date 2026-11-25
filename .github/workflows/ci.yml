@@ -19,4 +19,4 @@ jobs:
       - run: ruff format --check .
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run
-      - run: pytest -v --cov=accounts --cov-report=term-missing
+      - run: pytest -v --cov=accounts --cov=matching --cov-report=term-missing

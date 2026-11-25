@@ -33,7 +33,14 @@ urlpatterns = [
     path("portfolio/<str:kind>/<int:pk>/edit/", views.student_item, name="student_edit"),
     path("portfolio/<str:kind>/<int:pk>/delete/", views.student_delete, name="student_delete"),
     path("opportunities/add/", views.opportunity_edit, name="opportunity_add"),
+    path("opportunities/", views.opportunity_list, name="opportunity_list"),
     path("opportunities/<int:pk>/", views.opportunity_detail, name="opportunity_detail"),
+    path("opportunities/<int:pk>/apply/", views.opportunity_apply, name="opportunity_apply"),
+    path(
+        "opportunities/<int:pk>/applicants/",
+        views.opportunity_applicants,
+        name="opportunity_applicants",
+    ),
     path("opportunities/<int:pk>/edit/", views.opportunity_edit, name="opportunity_edit"),
     path("opportunities/<int:pk>/delete/", views.opportunity_delete, name="opportunity_delete"),
     path(
