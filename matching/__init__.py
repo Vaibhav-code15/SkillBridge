@@ -31,6 +31,18 @@ class MatchResult:
     skills: tuple[SkillMatch, ...]
 
 
+def _classify_skill(student_level: int, minimum: int) -> tuple[str, Fraction]:
+    if student_level == 0:
+        return "missing", Fraction(0)
+    if student_level < minimum:
+        return "improvable", Fraction(student_level, minimum)
+    return "matched", Fraction(1)
+
+
+def _round_half_up(value: Fraction) -> int:
+    return (2 * value.numerator + value.denominator) // (2 * value.denominator)
+
+
 def calculate_match(
     requirements: Sequence[RequiredSkillInput], student_levels: Mapping[int, int]
 ) -> MatchResult:
@@ -56,13 +68,7 @@ def calculate_match(
     weighted_credit = Fraction(0)
     for requirement in requirements:
         student_level = student_levels.get(requirement.skill_id, 0)
-        if student_level == 0:
-            status, credit = "missing", Fraction(0)
-        elif student_level < requirement.minimum:
-            status = "improvable"
-            credit = Fraction(student_level, requirement.minimum)
-        else:
-            status, credit = "matched", Fraction(1)
+        status, credit = _classify_skill(student_level, requirement.minimum)
 
         weighted_credit += requirement.weight * credit
         results.append(
@@ -79,5 +85,5 @@ def calculate_match(
         )
 
     exact_score = 100 * weighted_credit / total_weight
-    score = (exact_score.numerator * 2 + exact_score.denominator) // (2 * exact_score.denominator)
+    score = _round_half_up(exact_score)
     return MatchResult(score=score, skills=tuple(results))
