@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 
-from matching import RequiredSkillInput
+from matching import RequiredSkillInput, calculate_match
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,10 +46,58 @@ def suggest_improvements(
     student_levels: Mapping[int, int],
     opportunities: Sequence[Sequence[RequiredSkillInput]],
 ) -> tuple[Improvement, ...]:
-    raise NotImplementedError("Skill improvement suggestions are not implemented yet")
+    totals: dict[int, Improvement] = {}
+    for requirements in opportunities:
+        result = calculate_match(requirements, student_levels)
+        total_weight = sum(item.weight for item in requirements)
+        for skill in result.skills:
+            if skill.status == "matched":
+                continue
+            gain = Fraction(100 * skill.weight, total_weight) * (1 - skill.credit)
+            previous = totals.get(skill.skill_id)
+            totals[skill.skill_id] = Improvement(
+                skill_id=skill.skill_id,
+                name=skill.name,
+                current_level=skill.student_level,
+                target_level=max(skill.minimum, previous.target_level if previous else 0),
+                gain=gain + (previous.gain if previous else 0),
+                opportunities_affected=1 + (previous.opportunities_affected if previous else 0),
+            )
+    return tuple(
+        sorted(
+            totals.values(),
+            key=lambda item: (
+                -item.gain,
+                -item.opportunities_affected,
+                item.name.casefold(),
+                item.skill_id,
+            ),
+        )
+    )
 
 
 def analyze_team_gap(
     requirements: Sequence[RequiredSkillInput], members: Sequence[TeamMember]
 ) -> TeamGap:
-    raise NotImplementedError("Team gap analysis is not implemented yet")
+    levels = {
+        item.skill_id: max((member.levels.get(item.skill_id, 0) for member in members), default=0)
+        for item in requirements
+    }
+    result = calculate_match(requirements, levels)
+    skills = tuple(
+        TeamSkillGap(
+            skill_id=item.skill_id,
+            name=item.name,
+            status={"matched": "covered", "improvable": "partially covered", "missing": "gap"}[
+                item.status
+            ],
+            best_level=item.student_level,
+            minimum=item.minimum,
+            weight=item.weight,
+            covering_members=tuple(
+                member for member in members if member.levels.get(item.skill_id, 0) >= item.minimum
+            ),
+        )
+        for item in result.skills
+    )
+    return TeamGap(score=result.score, skills=skills, empty_team=not members)
