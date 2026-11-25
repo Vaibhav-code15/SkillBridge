@@ -1,3 +1,11 @@
 @import "tailwindcss";
+@import "../css/site.css";
+@import "../css/premium.css";
+@import "./tokens.css";
+@import "./components.css";
+@import "./discover.css";
+@import "./detail.css";
+@import "./dashboard.css";
+@import "./public.css";
 @source "../../templates";
 @source "../js";

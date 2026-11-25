@@ -8,4 +8,8 @@ Keep main stable. Do not rewrite published history. Record only real collaborati
 
 ## Current sprint
 
-Implement Sprint 2 only (US11-US17, 29 points), by Sarah Abbas. Do not implement Sprint 3. The owner has authorised Sprint 2 commits, pushes, and TDD phase transitions in advance. Preserve separate RED–GREEN–REFACTOR commits and CI runs. Merge only after successful CI and required human review.
+Maintain the Sprint 1 and Sprint 2 implementation and its genuine TDD history. The current work is a frontend-only redesign; do not implement Sprint 3. Merge only after successful CI, required human review, and explicit approval.
+
+## Design system
+
+Use midnight navy and deep indigo navigation and hero surfaces, pearl backgrounds, violet and indigo primary actions, and category accents: violet for internships, blue for research, and teal for academic projects. Use local Inter and Plus Jakarta Sans fonts, visible focus indicators, reduced-motion support, and real application data. See `docs/DESIGN_SYSTEM.md`.

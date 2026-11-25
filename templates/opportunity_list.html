@@ -2,24 +2,16 @@
 {% load querystring %}
 {% block breadcrumb %}Browse opportunities{% endblock %}
 {% block content %}
-<div class="page-heading"><div><span class="eyebrow">FIND YOUR NEXT STEP</span><h1>Opportunities</h1><p>Explore open internships, academic projects and research.</p></div></div>
-<form class="card opportunity-filters" method="get">
-  <div class="field search-field"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ search }}" placeholder="Title, description or skill" aria-label="Search opportunities"></div>
+{% include 'partials/hero_banner.html' with hero_eyebrow='EXPLORE YOUR POTENTIAL' hero_title='Your next big opportunity awaits.' hero_description='Discover projects, internships and research aligned with your skills.' %}
+<form class="card opportunity-filters discover-filters" method="get">
+  <div class="field search-field"><label for="q">Search</label><input id="q" name="q" type="search" value="{{ search }}" placeholder="Find an opportunity" aria-label="Search opportunities"></div>
   <div class="field"><label for="type">Type</label><select id="type" name="type"><option value="">All types</option>{% for value, label in opportunity_types %}<option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   <div class="field"><label for="skill">Required skill</label><select id="skill" name="skill"><option value="">Any skill</option>{% for skill in active_skills %}<option value="{{ skill.pk }}" {% if selected_skill == skill.pk|stringformat:'s' %}selected{% endif %}>{{ skill.name }}</option>{% endfor %}</select></div>
   <button class="button button-primary" type="submit">Search</button>
 </form>
-<p class="results-count" aria-live="polite">{{ page_obj.paginator.count }} open opportunity{{ page_obj.paginator.count|pluralize }}</p>
+<div class="discover-heading"><div><span class="eyebrow">CURATED FOR YOUR NEXT STEP</span><h2>Discover opportunities</h2></div><p class="results-count" aria-live="polite">{{ page_obj.paginator.count }} open opportunity{{ page_obj.paginator.count|pluralize }}</p></div>
 <div class="opportunity-cards">
-  {% for opportunity in page_obj %}
-    <article class="card opportunity-card">
-      <div class="opportunity-card-meta"><span class="badge">{{ opportunity.get_type_display }}</span><span class="muted">Deadline {{ opportunity.deadline }}</span></div>
-      <h2><a href="{% url 'opportunity_detail' opportunity.pk %}">{{ opportunity.title }}</a></h2>
-      <p>{{ opportunity.description|truncatechars:180 }}</p>
-      <div class="skill-chips">{% for requirement in opportunity.requirements.all %}<span class="skill-chip">{{ requirement.skill.name }} · {{ requirement.minimum_proficiency }}/4</span>{% empty %}<span class="muted">No required skills</span>{% endfor %}</div>
-      <div class="opportunity-card-footer"><span class="muted">{{ opportunity.faculty.get_full_name|default:opportunity.faculty.username }}</span>{% if user.role == 'student' and not user.is_superuser %}{% if opportunity.match_result.score != None %}<span class="score-badge">{{ opportunity.match_result.score }}% fit</span>{% else %}<span class="badge inactive">Unscored</span>{% endif %}{% endif %}</div>
-    </article>
-  {% empty %}<div class="card empty-state"><h2>No opportunities found</h2><p>Try another search or clear one of the filters.</p></div>{% endfor %}
+  {% for opportunity in page_obj %}{% include 'partials/opportunity_card.html' %}{% empty %}<div class="card empty-state"><h2>No opportunities found</h2><p>Try another search or clear one of the filters.</p></div>{% endfor %}
 </div>
 {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="Opportunity pages">{% if page_obj.has_previous %}{% query_page page_obj.previous_page_number as previous_query %}<a class="button button-secondary" href="?{{ previous_query }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}{% query_page page_obj.next_page_number as next_query %}<a class="button button-secondary" href="?{{ next_query }}">Next</a>{% endif %}</nav>{% endif %}
 {% endblock %}
