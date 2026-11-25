@@ -25,7 +25,7 @@ def make_opportunity(faculty, *, title, kind="research", status="published", dea
         description="Academic work for students",
         type=kind,
         status=status,
-        deadline=deadline or date.today() + timedelta(days=10),
+        deadline=deadline or timezone.localdate() + timedelta(days=10),
     )
 
 
@@ -69,7 +69,7 @@ def test_application_post_guards_duplicates_closed_draft_roles_and_csrf(client):
     open_item = make_opportunity(faculty, title="Open research")
     closed_item = make_opportunity(faculty, title="Closed research", status="closed")
     expired = make_opportunity(
-        faculty, title="Expired research", deadline=date.today() - timedelta(days=1)
+        faculty, title="Expired research", deadline=timezone.localdate() - timedelta(days=1)
     )
     draft = make_opportunity(faculty, title="Draft research", status="draft")
     apply_url = reverse("opportunity_apply", args=[open_item.pk])
@@ -120,6 +120,24 @@ def test_open_boundary_uses_local_date_for_property_and_queryset(client, monkeyp
     assert not expired.is_open
     assert not closed.is_open
     assert list(Opportunity.objects.is_open()) == [due_today]
+
+
+@pytest.mark.django_db
+def test_faculty_browse_excludes_other_faculty_opportunities(client):
+    owner = User.objects.create_user("owner", role="faculty")
+    other = User.objects.create_user("other", role="faculty")
+    own = make_opportunity(owner, title="My opportunity")
+    foreign = make_opportunity(other, title="Another opportunity")
+    client.force_login(owner)
+    response = client.get(reverse("opportunity_list"))
+    assert response.status_code == 200
+    assert list(response.context["page_obj"]) == [own]
+    assert client.get(reverse("opportunity_detail", args=[own.pk])).status_code == 200
+    assert client.get(reverse("opportunity_detail", args=[foreign.pk])).status_code == 404
+    assert client.get(reverse("opportunity_applicants", args=[foreign.pk])).status_code == 404
+    assert client.get(reverse("opportunity_edit", args=[foreign.pk])).status_code == 404
+    assert client.post(reverse("opportunity_delete", args=[foreign.pk])).status_code == 404
+    assert Opportunity.objects.filter(pk=foreign.pk).exists()
 
 
 @pytest.mark.django_db

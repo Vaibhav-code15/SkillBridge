@@ -1,10 +1,11 @@
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.matching import match_student, requirements_for
 from accounts.models import (
@@ -111,7 +112,7 @@ def test_faculty_requirements_and_ownership(client):
             "title": "Research",
             "description": "Description",
             "type": "research",
-            "deadline": date.today() + timedelta(days=30),
+            "deadline": timezone.localdate() + timedelta(days=30),
             "status": "published",
         },
     )
@@ -240,14 +241,14 @@ def test_edit_and_remove_sprint_one_records(client):
         title="Initial",
         description="Work",
         type="project",
-        deadline=date.today() + timedelta(days=30),
+        deadline=timezone.localdate() + timedelta(days=30),
         status="draft",
     )
     updated = {
         "title": "Updated",
         "description": "Work",
         "type": "research",
-        "deadline": date.today() + timedelta(days=60),
+        "deadline": timezone.localdate() + timedelta(days=60),
         "status": "published",
     }
     assert (

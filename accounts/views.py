@@ -238,6 +238,8 @@ def opportunity_list(request):
         .select_related("faculty")
         .prefetch_related("requirements__skill")
     )
+    if request.user.role == User.Role.FACULTY and not request.user.is_superuser:
+        opportunities = opportunities.filter(faculty=request.user)
     search = request.GET.get("q", "").strip()
     if search:
         opportunities = opportunities.filter(

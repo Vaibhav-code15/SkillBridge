@@ -1,5 +1,5 @@
 import os
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -124,7 +124,7 @@ class Command(BaseCommand):
                         defaults={
                             "description": "A fictional opportunity to collaborate on a practical academic challenge.",
                             "type": ["research", "internship", "project"][n],
-                            "deadline": date.today() + timedelta(days=45 + n * 10),
+                            "deadline": timezone.localdate() + timedelta(days=45 + n * 10),
                             "status": "published",
                         },
                     )
