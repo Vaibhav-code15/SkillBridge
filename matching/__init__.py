@@ -35,4 +35,49 @@ def calculate_match(
     requirements: Sequence[RequiredSkillInput], student_levels: Mapping[int, int]
 ) -> MatchResult:
     """Return weighted fit results for one student's skills and one opportunity."""
-    raise NotImplementedError
+    seen: set[int] = set()
+    for requirement in requirements:
+        if requirement.skill_id in seen:
+            raise ValueError("Requirement skill ids must be unique.")
+        seen.add(requirement.skill_id)
+        if requirement.minimum not in range(1, 5):
+            raise ValueError("Minimum proficiency must be between 1 and 4.")
+        if requirement.weight <= 0:
+            raise ValueError("Requirement weights must be positive.")
+
+    if any(level not in range(5) for level in student_levels.values()):
+        raise ValueError("Student proficiency levels must be between 0 and 4.")
+
+    total_weight = sum(requirement.weight for requirement in requirements)
+    if not requirements:
+        return MatchResult(score=None, skills=())
+
+    results = []
+    weighted_credit = Fraction(0)
+    for requirement in requirements:
+        student_level = student_levels.get(requirement.skill_id, 0)
+        if student_level == 0:
+            status, credit = "missing", Fraction(0)
+        elif student_level < requirement.minimum:
+            status = "improvable"
+            credit = Fraction(student_level, requirement.minimum)
+        else:
+            status, credit = "matched", Fraction(1)
+
+        weighted_credit += requirement.weight * credit
+        results.append(
+            SkillMatch(
+                skill_id=requirement.skill_id,
+                name=requirement.name,
+                status=status,
+                student_level=student_level,
+                minimum=requirement.minimum,
+                weight=requirement.weight,
+                credit=credit,
+                points=Fraction(100 * requirement.weight, total_weight) * credit,
+            )
+        )
+
+    exact_score = 100 * weighted_credit / total_weight
+    score = (exact_score.numerator * 2 + exact_score.denominator) // (2 * exact_score.denominator)
+    return MatchResult(score=score, skills=tuple(results))
