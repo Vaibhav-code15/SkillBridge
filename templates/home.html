@@ -21,7 +21,7 @@
     <div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div>{% include 'partials/hero_scene.html' with scene_id='landing' %}
   </div>
 </section>
-<section class="feature-section">
+<section class="feature-section" data-reveal>
   <div class="feature-intro"><div><span class="eyebrow">A MORE MEANINGFUL CONNECTION</span><h2>Make your next step<br>the right one.</h2></div><p>From the skills you've built to the projects you want to join, everything has a place here.</p></div>
   <div class="feature-strip">
     <article><span class="feature-number">01 / PROFILE</span><div class="feature-icon">✳</div><h3>Show your strengths</h3><p>Bring skills, projects and certifications together in a profile that grows with you.</p></article>
@@ -29,6 +29,7 @@
     <article><span class="feature-number">03 / CONNECT</span><div class="feature-icon">◇</div><h3>Understand the fit</h3><p>See how your skills align with an opportunity's requirements, with a clear breakdown.</p></article>
   </div>
 </section>
-<section class="closing-cta"><div><span class="eyebrow">YOUR NEXT CHAPTER</span><h2>There's more to your<br>story. Let's build it.</h2><p>Make space for the work you want to do next.</p></div><a class="button button-primary" href="{% url 'register' %}">Create an account <svg class="icon"><use href="#icon-arrow"/></svg></a></section>
-<footer class="public-footer"><a class="brand" href="{% url 'home' %}"><span class="brand-mark"><span></span><span></span><span></span><span></span></span> SkillBridge</a><span>Connecting skills with possibility.</span><a href="{% url 'login' %}">Sign in ↗</a></footer>
+<section class="how-section" data-reveal><span class="eyebrow">HOW IT WORKS</span><h2>From potential to possibility.</h2><div class="how-steps"><div><span>01</span><strong>Build your profile</strong><p>Share your academic interests and experience.</p></div><div><span>02</span><strong>Add your skills</strong><p>Show the strengths you have developed.</p></div><div><span>03</span><strong>Understand your fit</strong><p>Explore the skills behind each match.</p></div><div><span>04</span><strong>Apply with purpose</strong><p>Take the next step on an open opportunity.</p></div></div></section>
+<section class="closing-cta" data-reveal><div><span class="eyebrow">YOUR NEXT CHAPTER</span><h2>There's more to your<br>story. Let's build it.</h2><p>Make space for the work you want to do next.</p></div><a class="button button-primary" href="{% url 'register' %}">Create an account <svg class="icon"><use href="#icon-arrow"/></svg></a></section>
+<footer class="public-footer"><a class="brand" href="{% url 'home' %}">{% include 'partials/logo.html' %} SkillBridge</a><span>Connecting skills with possibility.</span><a href="{% url 'login' %}">Sign in ↗</a></footer>
 {% endblock %}

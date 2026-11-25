@@ -27,3 +27,7 @@ Run `.\.venv\Scripts\python.exe -m pytest -v`, `.\.venv\Scripts\ruff.exe check .
 ## Contributors
 
 Sarah Abbas, Vaibhav Khandelwal, Anirudh Goel and Vinayak Arora are acknowledged as project team members. Git history reflects actual contributions.
+
+## Design system
+
+The interface uses midnight navy navigation, indigo and violet hero surfaces, pearl backgrounds, and category-specific accents. Inter and Plus Jakarta Sans are served locally with system fallbacks. Shared component and motion guidance is in `docs/DESIGN_SYSTEM.md`; Tailwind compiles the source layers into `static/css/app.css`.
