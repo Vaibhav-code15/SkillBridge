@@ -4,5 +4,6 @@
 @import "./tokens.css";
 @import "./components.css";
 @import "./discover.css";
+@import "./detail.css";
 @source "../../templates";
 @source "../js";
