@@ -7,6 +7,28 @@ from django.utils import timezone
 from .models import Application, Notification, Opportunity
 
 
+def close_expired_opportunities(today=None):
+    today = today or timezone.localdate()
+    return (
+        Opportunity.objects.visible()
+        .filter(status=Opportunity.Status.PUBLISHED, deadline__lt=today)
+        .update(status=Opportunity.Status.CLOSED)
+    )
+
+
+def profile_completeness(
+    branch, academic_year, interests, skills_count, projects_count, certifications_count
+):
+    checklist = (
+        ("Academic details", bool(branch and branch.strip() and academic_year), "profile_edit"),
+        ("Interests", bool(interests and interests.strip()), "profile_edit"),
+        ("At least three skills", skills_count >= 3, "skills"),
+        ("At least one project", projects_count >= 1, "projects"),
+        ("At least one certification", certifications_count >= 1, "certifications"),
+    )
+    return {"score": 20 * sum(item[1] for item in checklist), "checklist": checklist}
+
+
 @transaction.atomic
 def apply_to_opportunity(student, opportunity_id):
     opportunity = Opportunity.objects.visible().select_for_update().get(pk=opportunity_id)

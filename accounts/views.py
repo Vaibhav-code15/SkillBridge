@@ -37,7 +37,13 @@ from .models import (
     StudentSkill,
     User,
 )
-from .services import apply_to_opportunity, decide_application, withdraw_application
+from .services import (
+    apply_to_opportunity,
+    close_expired_opportunities,
+    decide_application,
+    profile_completeness,
+    withdraw_application,
+)
 
 
 def role_required(role):
@@ -100,9 +106,11 @@ def dashboard(request):
                 "student_skills": request.user.student_skills.select_related("skill"),
                 "projects": request.user.projects.all(),
                 "certifications": request.user.certifications.all(),
+                "completeness": student_completeness(request.user, profile),
             },
         )
     if request.user.role == User.Role.FACULTY:
+        close_expired_opportunities()
         return render(
             request,
             "dashboard.html",
@@ -111,7 +119,7 @@ def dashboard(request):
     return HttpResponseForbidden("Your account has no dashboard role.")
 
 
-def edit_form(request, form, title, back="dashboard"):
+def edit_form(request, form, title, back="dashboard", extra=None):
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
@@ -120,13 +128,31 @@ def edit_form(request, form, title, back="dashboard"):
             return redirect(back)
         except IntegrityError:
             form.add_error(None, "This record already exists or conflicts with an existing record.")
-    return render(request, "form.html", {"form": form, "title": title, "back": back})
+    return render(
+        request, "form.html", {"form": form, "title": title, "back": back, **(extra or {})}
+    )
+
+
+def student_completeness(user, profile):
+    return profile_completeness(
+        profile.branch,
+        profile.academic_year,
+        profile.interests,
+        user.student_skills.count(),
+        user.projects.count(),
+        user.certifications.count(),
+    )
 
 
 @role_required("student")
 def profile_edit(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
-    return edit_form(request, ProfileForm(request.POST or None, instance=profile), "Edit profile")
+    return edit_form(
+        request,
+        ProfileForm(request.POST or None, instance=profile),
+        "Edit profile",
+        extra={"completeness": student_completeness(request.user, profile)},
+    )
 
 
 @role_required("student")
@@ -239,6 +265,7 @@ def opportunity_list(request):
     ):
         return HttpResponseForbidden("You do not have access to this page.")
 
+    close_expired_opportunities()
     opportunities = (
         Opportunity.objects.is_open()
         .select_related("faculty")
