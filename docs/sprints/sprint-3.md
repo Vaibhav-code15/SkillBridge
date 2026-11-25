@@ -6,7 +6,7 @@
 | US21 | In progress | Recommendation service, dashboard widget and page added; end-to-end verification pending. |
 | US22 | In progress | Pure function, service and improvement page added; end-to-end verification pending. |
 | US23 | In progress | Student notifications and inbox added; end-to-end verification pending. |
-| US24 | Not done | Pure team-gap function has TDD coverage; authorization and UI pending. |
+| US24 | In progress | Team-gap UI and eligible-applicant validation added; end-to-end verification pending. |
 | US25–US26 | Not done | Implementation pending. |
 | US27–US28 | In progress | Closure service and profile checklist added with focused tests; end-to-end verification pending. |
 

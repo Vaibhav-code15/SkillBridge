@@ -81,3 +81,31 @@ def test_removed_and_hard_delete_preserve_application(client):
     assert b"Removed by administrator" in history.content
     assert reverse("opportunity_detail", args=[opportunity.pk]).encode() not in history.content
     assert Application.objects.filter(pk=application.pk).exists()
+
+
+@pytest.mark.django_db
+def test_team_gap_rejects_ineligible_ids_and_internships(client):
+    owner = User.objects.create_user("owner", role="faculty")
+    other = User.objects.create_user("other", role="faculty")
+    student = User.objects.create_user("student", role="student")
+    foreign = User.objects.create_user("foreign", role="student")
+    base = {
+        "faculty": owner,
+        "description": "Work",
+        "deadline": timezone.localdate() + timedelta(days=3),
+        "status": "published",
+    }
+    opportunity = Opportunity.objects.create(title="Project", type="project", **base)
+    internship = Opportunity.objects.create(title="Internship", type="internship", **base)
+    application = Application.objects.create(student=student, opportunity=opportunity)
+    client.force_login(owner)
+    url = reverse("team_gap", args=[opportunity.pk])
+    assert client.get(url, {"selection": "1", "member": student.pk}).status_code == 200
+    assert client.get(url, {"selection": "1", "member": foreign.pk}).status_code == 400
+    assert client.get(url, {"selection": "1", "member": "bad"}).status_code == 400
+    assert client.get(url, {"selection": "1", "member": "9" * 5000}).status_code == 400
+    assert client.get(reverse("team_gap", args=[internship.pk])).status_code == 404
+    withdraw_application(student, application.pk)
+    assert client.get(url, {"selection": "1", "member": student.pk}).status_code == 400
+    client.force_login(other)
+    assert client.get(url).status_code == 404

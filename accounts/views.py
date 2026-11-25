@@ -7,12 +7,13 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch, Q
-from django.http import Http404, HttpResponseForbidden
+from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from matching import rank_candidates
+from matching.advanced import TeamMember, analyze_team_gap
 
 from .forms import (
     CertificationForm,
@@ -531,4 +532,51 @@ def recommendations(request):
 def improvements(request):
     return render(
         request, "improvements.html", {"improvements": student_improvements(request.user)}
+    )
+
+
+@role_required("faculty")
+def team_gap(request, pk):
+    opportunity = get_object_or_404(
+        Opportunity.objects.visible().prefetch_related("requirements__skill"),
+        pk=pk,
+        faculty=request.user,
+        type__in=[Opportunity.Type.PROJECT, Opportunity.Type.RESEARCH],
+    )
+    candidates = list(
+        opportunity.applications.exclude(status=Application.Status.WITHDRAWN)
+        .select_related("student")
+        .prefetch_related("student__student_skills")
+    )
+    valid = {item.student_id: item for item in candidates}
+    if "selection" in request.GET:
+        raw = request.GET.getlist("member")
+        if any(not value.isascii() or not value.isdecimal() or len(value) > 20 for value in raw):
+            return HttpResponseBadRequest("Invalid team member selection.")
+        selected = {int(value) for value in raw}
+        if not selected.issubset(valid):
+            return HttpResponseBadRequest("Invalid team member selection.")
+    else:
+        selected = {
+            item.student_id for item in candidates if item.status == Application.Status.SHORTLISTED
+        }
+    members = [
+        TeamMember(
+            item.student_id,
+            item.student.get_full_name().strip() or item.student.username,
+            skill_levels_for(item.student),
+        )
+        for item in candidates
+        if item.student_id in selected
+    ]
+    result = analyze_team_gap(requirements_for(opportunity), members)
+    return render(
+        request,
+        "team_gap.html",
+        {
+            "opportunity": opportunity,
+            "candidates": candidates,
+            "selected": selected,
+            "result": result,
+        },
     )

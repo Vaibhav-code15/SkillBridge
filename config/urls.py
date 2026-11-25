@@ -54,6 +54,7 @@ urlpatterns = [
         name="opportunity_applicants",
     ),
     path("opportunities/<int:pk>/edit/", views.opportunity_edit, name="opportunity_edit"),
+    path("opportunities/<int:pk>/team-gap/", views.team_gap, name="team_gap"),
     path("opportunities/<int:pk>/delete/", views.opportunity_delete, name="opportunity_delete"),
     path(
         "opportunities/<int:pk>/requirements/add/", views.requirement_edit, name="requirement_add"
