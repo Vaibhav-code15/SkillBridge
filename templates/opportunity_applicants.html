@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block breadcrumb %}<a href="{% url 'opportunity_detail' opportunity.pk %}">{{ opportunity.title }}</a> / Applicants{% endblock %}
+{% block content %}
+<div class="page-heading"><div><a class="back-link" href="{% url 'opportunity_detail' opportunity.pk %}">← Back to opportunity</a><h1>Applicants</h1><p>{{ opportunity.title }} · Ranked by current skill fit</p></div><span class="badge">{{ applicants|length }} applicant{{ applicants|length|pluralize }}</span></div>
+<div class="applicant-list">
+  {% for application in applicants %}
+    <article class="card applicant-card">
+      <div class="applicant-heading"><span class="rank-number">{{ application.rank }}</span><div class="applicant-identity"><h2>{{ application.student.get_full_name|default:application.student.username }}</h2><p>{{ application.student_profile.branch|default:'Branch not provided' }}{% if application.student_profile.academic_year %} · Year {{ application.student_profile.academic_year }}{% endif %} · Applied {{ application.applied_at|date:'M j, Y' }}</p></div>{% if application.match_result.score != None %}<span class="score-badge">{{ application.match_result.score }}% fit</span>{% else %}<span class="badge inactive">Unscored</span>{% endif %}</div>
+      <dl class="applicant-profile"><div><dt>Interests</dt><dd>{{ application.student_profile.interests|default:'Not provided' }}</dd></div><div><dt>Skills</dt><dd>{% for item in application.student.student_skills.all %}<span class="skill-chip">{{ item.skill.name }} · {{ item.proficiency }}/4</span>{% empty %}No skills listed{% endfor %}</dd></div><div><dt>Projects</dt><dd>{% for project in application.student.projects.all %}<strong>{{ project.title }}</strong>{% if project.description %}<span>{{ project.description|truncatechars:100 }}</span>{% endif %}{% empty %}No projects listed{% endfor %}</dd></div><div><dt>Certifications</dt><dd>{% for certification in application.student.certifications.all %}<strong>{{ certification.title }}</strong><span>{{ certification.issuer }}</span>{% empty %}No certifications listed{% endfor %}</dd></div></dl>
+      <details class="applicant-breakdown"><summary>Expand skill match breakdown</summary><div class="fit-list">{% for skill in application.match_result.skills %}{% include 'partials/fit_skill.html' %}{% empty %}<p class="muted">This opportunity has no skill requirements and no fit score.</p>{% endfor %}</div></details>
+    </article>
+  {% empty %}<div class="card empty-state"><h2>No applicants yet</h2><p>Student applications will appear here.</p></div>{% endfor %}
+</div>
+{% endblock %}

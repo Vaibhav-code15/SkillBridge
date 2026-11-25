@@ -6,7 +6,16 @@ from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.urls import reverse
 
-from accounts.models import Opportunity, RequiredSkill, Skill, StudentProfile, StudentSkill, User
+from accounts.matching import match_student, requirements_for
+from accounts.models import (
+    Application,
+    Opportunity,
+    RequiredSkill,
+    Skill,
+    StudentProfile,
+    StudentSkill,
+    User,
+)
 
 
 @pytest.mark.django_db
@@ -163,9 +172,26 @@ def test_seed_is_guarded_and_repeatable(monkeypatch):
     monkeypatch.setenv("SKILLBRIDGE_DEMO_PASSWORD", "local-test-password-123")
     call_command("seed_demo")
     counts = (User.objects.count(), Skill.objects.count(), Opportunity.objects.count())
+    application_count = Application.objects.count()
+    demo_opportunity = (
+        Opportunity.objects.filter(faculty__username="demo_faculty_13").order_by("pk").first()
+    )
+    tied_applications = list(
+        Application.objects.filter(
+            opportunity=demo_opportunity,
+            student__username__in=["demo_student_1", "demo_student_2"],
+        ).order_by("student__username")
+    )
+    assert len(tied_applications) == 2
+    assert tied_applications[0].applied_at == tied_applications[1].applied_at
+    assert [
+        match_student(requirements_for(demo_opportunity), application.student).score
+        for application in tied_applications
+    ] == [0, 0]
     call_command("seed_demo")
     assert counts == (16, 28, 9)
     assert counts == (User.objects.count(), Skill.objects.count(), Opportunity.objects.count())
+    assert application_count == Application.objects.count()
 
 
 @pytest.mark.django_db

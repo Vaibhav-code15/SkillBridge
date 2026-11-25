@@ -1,1 +1,34 @@
-{% extends 'base.html' %}{% block breadcrumb %}Opportunity{% endblock %}{% block content %}<div class="page-heading"><div><a class="back-link" href="{% url 'dashboard' %}">← Back to opportunities</a><h1>{{ opportunity.title }}</h1><p>{{ opportunity.get_type_display }} · Deadline {{ opportunity.deadline }} · <span class="badge">{{ opportunity.get_status_display }}</span></p></div><a class="button button-secondary" href="{% url 'opportunity_edit' opportunity.pk %}">Edit opportunity</a></div><div class="dashboard-grid"><section class="card"><h2>About this opportunity</h2><div class="prose">{{ opportunity.description|linebreaks }}</div><form method="post" action="{% url 'opportunity_delete' opportunity.pk %}" onsubmit="return confirm('Delete this opportunity?')">{% csrf_token %}<button class="danger-link">Delete opportunity</button></form></section><section class="card"><div class="section-heading"><div><h2>Required skills</h2><p>Set minimum levels and importance</p></div><a href="{% url 'requirement_add' opportunity.pk %}">＋ Add</a></div>{% for item in opportunity.requirements.all %}<div class="list-row"><div><strong>{{ item.skill.name }}</strong><small>Minimum {{ item.minimum_proficiency }} / 4 · Weight {{ item.weight }}</small></div><div class="row-actions"><a href="{% url 'requirement_edit' opportunity.pk item.pk %}">Edit</a><form method="post" action="{% url 'requirement_delete' opportunity.pk item.pk %}">{% csrf_token %}<button>Remove</button></form></div></div>{% empty %}<div class="empty">No skill requirements configured yet.</div>{% endfor %}</section></div>{% endblock %}
+{% extends 'base.html' %}
+{% block breadcrumb %}<a href="{% url 'opportunity_list' %}">Opportunities</a> / {{ opportunity.title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <a class="back-link" href="{% url 'opportunity_list' %}">← Browse opportunities</a>
+    <h1>{{ opportunity.title }}</h1>
+    <p>{{ opportunity.get_type_display }} · Deadline {{ opportunity.deadline }} · <span class="badge">{{ opportunity.get_status_display }}</span></p>
+  </div>
+  {% if is_owner %}<div class="actions"><a class="button button-secondary" href="{% url 'opportunity_edit' opportunity.pk %}">Edit opportunity</a><a class="button button-primary" href="{% url 'opportunity_applicants' opportunity.pk %}">View applicants</a></div>{% endif %}
+</div>
+<div class="dashboard-grid">
+  <section class="card">
+    <h2>About this opportunity</h2>
+    <div class="prose">{{ opportunity.description|linebreaks }}</div>
+    {% if is_owner %}<form method="post" action="{% url 'opportunity_delete' opportunity.pk %}" onsubmit="return confirm('Delete this opportunity?')">{% csrf_token %}<button class="danger-link">Delete opportunity</button></form>{% endif %}
+  </section>
+  <section class="card">
+    <div class="section-heading"><div><h2>Required skills</h2><p>Minimum proficiency and importance</p></div>{% if is_owner %}<a href="{% url 'requirement_add' opportunity.pk %}">＋ Add</a>{% endif %}</div>
+    {% for item in opportunity.requirements.all %}
+      <div class="list-row"><div><strong>{{ item.skill.name }}</strong><small>Minimum {{ item.minimum_proficiency }} / 4 · Weight {{ item.weight }}</small></div>{% if is_owner %}<div class="row-actions"><a href="{% url 'requirement_edit' opportunity.pk item.pk %}">Edit</a><form method="post" action="{% url 'requirement_delete' opportunity.pk item.pk %}">{% csrf_token %}<button>Remove</button></form></div>{% endif %}</div>
+    {% empty %}<div class="empty">No skill requirements configured yet.</div>{% endfor %}
+  </section>
+  {% if is_student %}
+    <section class="card fit-panel">
+      <div class="section-heading"><div><h2>Your skill fit</h2><p>Based on your current profile</p></div>{% if fit.score != None %}<span class="score-badge">{{ fit.score }}% fit</span>{% endif %}</div>
+      {% if fit.score != None %}<progress class="fit-progress" max="100" value="{{ fit.score }}" aria-label="{{ fit.score }} percent skill fit">{{ fit.score }}%</progress>{% else %}<p class="muted">This opportunity has no skill requirements, so there is no fit score to calculate.</p>{% endif %}
+      {% for group in fit_groups %}<h3>{{ group.label }}</h3><div class="fit-list">{% for skill in group.skills %}{% include 'partials/fit_skill.html' %}{% empty %}<p class="muted">No {{ group.label|lower }} skills.</p>{% endfor %}</div>{% endfor %}
+      {% if not has_skills %}<a class="button button-secondary" href="{% url 'student_add' 'skills' %}">Add skills to your profile</a>{% endif %}
+      {% if application %}<p class="application-state" role="status">Applied on {{ application.applied_at|date:'M j, Y' }}</p>{% elif opportunity.is_open %}<form method="post" action="{% url 'opportunity_apply' opportunity.pk %}">{% csrf_token %}<button class="button button-primary" type="submit">Apply</button></form>{% else %}<p class="application-state" role="status">Applications closed</p>{% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
