@@ -6,5 +6,6 @@
 @import "./discover.css";
 @import "./detail.css";
 @import "./dashboard.css";
+@import "./public.css";
 @source "../../templates";
 @source "../js";
