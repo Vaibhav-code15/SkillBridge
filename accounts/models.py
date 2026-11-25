@@ -71,8 +71,13 @@ class Certification(models.Model):
 
 
 class OpportunityQuerySet(models.QuerySet):
+    def visible(self):
+        return self.filter(is_removed=False)
+
     def is_open(self):
-        return self.filter(status=Opportunity.Status.PUBLISHED, deadline__gte=timezone.localdate())
+        return self.visible().filter(
+            status=Opportunity.Status.PUBLISHED, deadline__gte=timezone.localdate()
+        )
 
 
 class Opportunity(models.Model):
@@ -93,6 +98,8 @@ class Opportunity(models.Model):
     deadline = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_removed = models.BooleanField(default=False)
+    removed_at = models.DateTimeField(null=True, blank=True)
     objects = OpportunityQuerySet.as_manager()
 
     class Meta:
@@ -110,7 +117,11 @@ class Opportunity(models.Model):
 
     @property
     def is_open(self):
-        return self.status == self.Status.PUBLISHED and self.deadline >= timezone.localdate()
+        return (
+            not self.is_removed
+            and self.status == self.Status.PUBLISHED
+            and self.deadline >= timezone.localdate()
+        )
 
 
 class RequiredSkill(models.Model):
@@ -140,6 +151,9 @@ class RequiredSkill(models.Model):
 class Application(models.Model):
     class Status(models.TextChoices):
         APPLIED = "applied", "Applied"
+        SHORTLISTED = "shortlisted", "Shortlisted"
+        REJECTED = "rejected", "Rejected"
+        WITHDRAWN = "withdrawn", "Withdrawn"
 
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="applications")
     opportunity = models.ForeignKey(
@@ -147,6 +161,7 @@ class Application(models.Model):
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)
     applied_at = models.DateTimeField(default=timezone.now, editable=False)
+    status_changed_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["applied_at", "pk"]
@@ -154,9 +169,25 @@ class Application(models.Model):
             models.UniqueConstraint(
                 fields=["student", "opportunity"], name="unique_student_opportunity_application"
             ),
-            models.CheckConstraint(condition=models.Q(status="applied"), name="application_status"),
+            models.CheckConstraint(
+                condition=models.Q(status__in=["applied", "shortlisted", "rejected", "withdrawn"]),
+                name="application_status",
+            ),
         ]
         indexes = [
             models.Index(fields=["opportunity", "applied_at"], name="application_opp_time"),
             models.Index(fields=["student", "applied_at"], name="application_student_time"),
         ]
+
+
+class Notification(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    message = models.CharField(max_length=255)
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, null=True, blank=True, related_name="notifications"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]

@@ -2,9 +2,10 @@
 
 | Story | Status | Evidence |
 | --- | --- | --- |
-| US18–US21 | Not done | Implementation pending. |
+| US18–US20 | In progress | Lifecycle services, history and initial ownership tests added; end-to-end verification pending. |
+| US21 | Not done | Implementation pending. |
 | US22 | Not done | Pure improvement function has TDD coverage; service and UI pending. |
-| US23 | Not done | Implementation pending. |
+| US23 | In progress | Student notifications and inbox added; end-to-end verification pending. |
 | US24 | Not done | Pure team-gap function has TDD coverage; authorization and UI pending. |
 | US25–US28 | Not done | Implementation pending. |
 

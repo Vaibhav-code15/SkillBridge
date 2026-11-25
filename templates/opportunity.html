@@ -27,7 +27,7 @@
       {% if fit.score != None %}<progress class="fit-progress" max="100" value="{{ fit.score }}" aria-label="{{ fit.score }} percent skill fit">{{ fit.score }}%</progress>{% else %}<p class="muted">This opportunity has no skill requirements, so there is no fit score to calculate.</p>{% endif %}
       {% for group in fit_groups %}<h3>{{ group.label }}</h3><div class="fit-list">{% for skill in group.skills %}{% include 'partials/fit_skill.html' %}{% empty %}<p class="muted">No {{ group.label|lower }} skills.</p>{% endfor %}</div>{% endfor %}
       {% if not has_skills %}<a class="button button-secondary" href="{% url 'student_add' 'skills' %}">Add skills to your profile</a>{% endif %}
-      {% if application %}<p class="application-state" role="status">Applied on {{ application.applied_at|date:'M j, Y' }}</p>{% elif opportunity.is_open %}<form method="post" action="{% url 'opportunity_apply' opportunity.pk %}">{% csrf_token %}<button class="button button-primary" type="submit">Apply</button></form>{% else %}<p class="application-state" role="status">Applications closed</p>{% endif %}
+      {% if application and application.status != 'withdrawn' %}<p class="application-state" role="status">Applied on {{ application.applied_at|date:'M j, Y' }} · {{ application.get_status_display }}</p>{% elif opportunity.is_open %}<form method="post" action="{% url 'opportunity_apply' opportunity.pk %}">{% csrf_token %}<button class="button button-primary" type="submit">Apply</button></form>{% else %}<p class="application-state" role="status">Applications closed</p>{% endif %}
     </section>
   {% endif %}
 </div>
