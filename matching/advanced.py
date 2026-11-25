@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 
-from matching import RequiredSkillInput, calculate_match
+from matching import RequiredSkillInput, SkillMatch, calculate_match
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +42,35 @@ class TeamGap:
     empty_team: bool
 
 
+def _accumulate_improvement(
+    skill: SkillMatch, total_weight: int, previous: Improvement | None
+) -> Improvement:
+    gain = Fraction(100 * skill.weight, total_weight) * (1 - skill.credit)
+    return Improvement(
+        skill_id=skill.skill_id,
+        name=skill.name,
+        current_level=skill.student_level,
+        target_level=max(skill.minimum, previous.target_level if previous else 0),
+        gain=gain + (previous.gain if previous else 0),
+        opportunities_affected=1 + (previous.opportunities_affected if previous else 0),
+    )
+
+
+def _team_skill_gap(skill: SkillMatch, members: Sequence[TeamMember]) -> TeamSkillGap:
+    statuses = {"matched": "covered", "improvable": "partially covered", "missing": "gap"}
+    return TeamSkillGap(
+        skill_id=skill.skill_id,
+        name=skill.name,
+        status=statuses[skill.status],
+        best_level=skill.student_level,
+        minimum=skill.minimum,
+        weight=skill.weight,
+        covering_members=tuple(
+            member for member in members if member.levels.get(skill.skill_id, 0) >= skill.minimum
+        ),
+    )
+
+
 def suggest_improvements(
     student_levels: Mapping[int, int],
     opportunities: Sequence[Sequence[RequiredSkillInput]],
@@ -53,15 +82,8 @@ def suggest_improvements(
         for skill in result.skills:
             if skill.status == "matched":
                 continue
-            gain = Fraction(100 * skill.weight, total_weight) * (1 - skill.credit)
-            previous = totals.get(skill.skill_id)
-            totals[skill.skill_id] = Improvement(
-                skill_id=skill.skill_id,
-                name=skill.name,
-                current_level=skill.student_level,
-                target_level=max(skill.minimum, previous.target_level if previous else 0),
-                gain=gain + (previous.gain if previous else 0),
-                opportunities_affected=1 + (previous.opportunities_affected if previous else 0),
+            totals[skill.skill_id] = _accumulate_improvement(
+                skill, total_weight, totals.get(skill.skill_id)
             )
     return tuple(
         sorted(
@@ -84,20 +106,5 @@ def analyze_team_gap(
         for item in requirements
     }
     result = calculate_match(requirements, levels)
-    skills = tuple(
-        TeamSkillGap(
-            skill_id=item.skill_id,
-            name=item.name,
-            status={"matched": "covered", "improvable": "partially covered", "missing": "gap"}[
-                item.status
-            ],
-            best_level=item.student_level,
-            minimum=item.minimum,
-            weight=item.weight,
-            covering_members=tuple(
-                member for member in members if member.levels.get(item.skill_id, 0) >= item.minimum
-            ),
-        )
-        for item in result.skills
-    )
+    skills = tuple(_team_skill_gap(item, members) for item in result.skills)
     return TeamGap(score=result.score, skills=skills, empty_team=not members)
