@@ -13,7 +13,7 @@
   <section class="card">
     <h2>About this opportunity</h2>
     <div class="prose">{{ opportunity.description|linebreaks }}</div>
-    {% if is_owner %}<form method="post" action="{% url 'opportunity_delete' opportunity.pk %}" onsubmit="return confirm('Delete this opportunity?')">{% csrf_token %}<button class="danger-link">Delete opportunity</button></form>{% endif %}
+    {% if is_owner %}<form method="post" action="{% url 'opportunity_delete' opportunity.pk %}">{% csrf_token %}<button class="danger-link">Delete opportunity</button></form>{% endif %}
   </section>
   <section class="card">
     <div class="section-heading"><div><h2>Required skills</h2><p>Minimum proficiency and importance</p></div>{% if is_owner %}<a href="{% url 'requirement_add' opportunity.pk %}">＋ Add</a>{% endif %}</div>
@@ -23,7 +23,7 @@
   </section>
   {% if is_student %}
     <section class="card fit-panel">
-      <div class="section-heading"><div><h2>Your skill fit</h2><p>Based on your current profile</p></div>{% if fit.score != None %}<span class="score-badge">{{ fit.score }}% fit</span>{% endif %}</div>
+      <div class="section-heading"><div><h2>Your skill fit</h2><p>Based on your current profile</p></div>{% if fit.score != None %}<span class="score-ring" style="--score:{{ fit.score }}" aria-label="{{ fit.score }} percent skill fit" title="Weighted against this opportunity's required skills"><span>{{ fit.score }}%</span></span>{% endif %}</div>
       {% if fit.score != None %}<progress class="fit-progress" max="100" value="{{ fit.score }}" aria-label="{{ fit.score }} percent skill fit">{{ fit.score }}%</progress>{% else %}<p class="muted">This opportunity has no skill requirements, so there is no fit score to calculate.</p>{% endif %}
       {% for group in fit_groups %}<h3>{{ group.label }}</h3><div class="fit-list">{% for skill in group.skills %}{% include 'partials/fit_skill.html' %}{% empty %}<p class="muted">No {{ group.label|lower }} skills.</p>{% endfor %}</div>{% endfor %}
       {% if not has_skills %}<a class="button button-secondary" href="{% url 'student_add' 'skills' %}">Add skills to your profile</a>{% endif %}

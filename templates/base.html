@@ -1,2 +1,48 @@
-{% load static %}<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}SkillBridge{% endblock %}</title><link rel="stylesheet" href="{% static 'css/app.css' %}"><link rel="stylesheet" href="{% static 'css/site.css' %}"></head><body>
-{% if user.is_authenticated %}<div class="app-shell"><aside class="sidebar" id="sidebar"><a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">S</span> SkillBridge</a><p class="nav-label">WORKSPACE</p><nav><a class="nav-link active" href="{% url 'dashboard' %}">▦ &nbsp; Dashboard</a>{% if user.role == 'student' %}<a class="nav-link" href="{% url 'opportunity_list' %}">Browse opportunities</a><a class="nav-link" href="{% url 'profile_edit' %}">◉ &nbsp; My profile</a>{% elif user.role == 'faculty' %}<a class="nav-link" href="{% url 'opportunity_list' %}">Browse opportunities</a><a class="nav-link" href="{% url 'opportunity_add' %}">＋ &nbsp; New opportunity</a>{% elif user.is_superuser %}<a class="nav-link" href="{% url 'catalogue_add' %}">＋ &nbsp; Add skill</a>{% endif %}</nav><div class="sidebar-bottom"><span class="avatar">{{ user.username|first|upper }}</span><span><strong>{{ user.get_full_name|default:user.username }}</strong><small>{% if user.is_superuser %}Administrator{% else %}{{ user.get_role_display }}{% endif %}</small></span><form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out</button></form></div></aside><div class="main-area"><header class="topbar"><button class="mobile-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">☰</button><span>Workspace <span class="separator">/</span> {% block breadcrumb %}Dashboard{% endblock %}</span><span class="top-user">{{ user.get_full_name|default:user.username }}</span></header><main class="content">{% include 'partials/messages.html' %}{% block content %}{% endblock %}</main></div></div>{% else %}<header class="public-header"><a class="brand" href="{% url 'home' %}"><span class="brand-mark">S</span> SkillBridge</a><nav><a href="{% url 'login' %}">Sign in</a><a class="button button-primary" href="{% url 'register' %}">Get started</a></nav></header><main>{% include 'partials/messages.html' %}{% block public_content %}{% endblock %}</main>{% endif %}<script src="{% static 'js/site.js' %}" defer></script></body></html>
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f8fafc">
+  <title>{% block title %}SkillBridge{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% static 'css/premium.css' %}">
+</head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<svg class="icon-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+</svg>
+{% if user.is_authenticated %}
+<div class="app-shell">
+  <button class="sidebar-backdrop" type="button" aria-label="Close navigation" hidden></button>
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark"><span></span><span></span><span></span><span></span></span><span>SkillBridge<small>YOUR SPACE TO GROW</small></span></a>
+    <p class="nav-label">WORKSPACE</p>
+    <nav>
+      <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="icon"><use href="#icon-grid"/></svg> Overview</a>
+      {% if user.role == 'student' or user.role == 'faculty' %}<a class="nav-link {% if request.resolver_match.url_name == 'opportunity_list' %}active{% endif %}" href="{% url 'opportunity_list' %}"><svg class="icon"><use href="#icon-search"/></svg> Opportunities</a>{% endif %}
+      {% if user.role == 'student' %}<a class="nav-link" href="{% url 'profile_edit' %}"><svg class="icon"><use href="#icon-user"/></svg> My profile</a>{% elif user.role == 'faculty' %}<a class="nav-link" href="{% url 'opportunity_add' %}"><svg class="icon"><use href="#icon-plus"/></svg> New opportunity</a>{% elif user.is_superuser %}<a class="nav-link" href="{% url 'catalogue_add' %}"><svg class="icon"><use href="#icon-plus"/></svg> Add skill</a>{% endif %}
+    </nav>
+    <div class="sidebar-bottom"><div class="sidebar-person"><span class="avatar">{{ user.username|first|upper }}</span><span><strong>{{ user.get_full_name|default:user.username }}</strong><small>{% if user.is_superuser %}Administrator{% else %}{{ user.get_role_display }}{% endif %}</small></span></div><form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out <span aria-hidden="true">↗</span></button></form></div>
+  </aside>
+  <div class="main-area">
+    <header class="topbar"><button class="mobile-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><svg class="icon"><use href="#icon-menu"/></svg></button><span class="breadcrumbs">Workspace <span class="separator">/</span> <strong>{% block breadcrumb %}Overview{% endblock %}</strong></span>
+      <details class="account-menu"><summary aria-label="Account menu"><span class="avatar">{{ user.username|first|upper }}</span><span class="top-user">{{ user.get_full_name|default:user.username }}</span><span aria-hidden="true">⌄</span></summary><div class="account-popover"><strong>{{ user.get_full_name|default:user.username }}</strong><small>{{ user.email }}</small>{% if user.role == 'student' %}<a href="{% url 'profile_edit' %}">Edit profile</a>{% endif %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button type="submit">Sign out</button></form></div></details>
+    </header>
+    <main id="main-content" class="content" tabindex="-1">{% include 'partials/messages.html' %}{% block content %}{% endblock %}</main>
+  </div>
+</div>
+{% else %}
+<header class="public-header"><a class="brand" href="{% url 'home' %}"><span class="brand-mark"><span></span><span></span><span></span><span></span></span><span>SkillBridge</span></a><nav aria-label="Account navigation"><a href="{% url 'login' %}">Sign in</a><a class="button button-primary" href="{% url 'register' %}">Get started <svg class="icon"><use href="#icon-arrow"/></svg></a></nav></header>
+<main id="main-content" tabindex="-1">{% include 'partials/messages.html' %}{% block public_content %}{% endblock %}</main>
+{% endif %}
+<dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description"><form method="dialog"><div class="dialog-icon" aria-hidden="true">!</div><h2 id="confirm-title">Please confirm</h2><p id="confirm-description"></p><div class="actions dialog-actions"><button class="button button-secondary" value="cancel">Cancel</button><button class="button button-primary" value="confirm">Confirm</button></div></form></dialog>
+<script src="{% static 'js/site.js' %}" defer></script>
+</body></html>

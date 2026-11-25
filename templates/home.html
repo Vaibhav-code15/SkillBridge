@@ -1,1 +1,34 @@
-{% extends 'base.html' %}{% block public_content %}<section class="hero"><div><span class="eyebrow">CONNECT YOUR SKILLS TO WHAT'S NEXT</span><h1>Make your next opportunity count.</h1><p>Bring your skills, experience, and ambitions together. SkillBridge helps students and faculty build meaningful academic connections.</p><div class="actions"><a class="button button-primary" href="{% url 'register' %}">Create your account <span aria-hidden="true">→</span></a><a class="button button-secondary" href="{% url 'login' %}">Sign in</a></div></div><div class="hero-card"><div class="hero-icon">▦</div><h2>Built for potential.</h2><p>A clearer way to present your strengths and manage opportunities across your academic community.</p><div class="hero-row"><span>01</span><div><strong>Showcase your skills</strong><small>Build a profile that reflects your experience.</small></div></div><div class="hero-row"><span>02</span><div><strong>Create opportunities</strong><small>Define the skills your projects need.</small></div></div><div class="hero-row"><span>03</span><div><strong>Grow together</strong><small>Connect learning with real experience.</small></div></div></div></section><section class="feature-strip"><div><strong>For students</strong><p>Keep your skills, projects and certifications in one place.</p></div><div><strong>For faculty</strong><p>Share internships, projects and research opportunities.</p></div><div><strong>For communities</strong><p>Build a consistent catalogue of skills across your institution.</p></div></section>{% endblock %}
+{% extends 'base.html' %}
+{% block public_content %}
+<section class="hero">
+  <div class="hero-copy">
+    <span class="hero-kicker"><span class="kicker-dot"></span> MADE FOR WHAT'S NEXT</span>
+    <h1>Good opportunities start with <em>your potential.</em></h1>
+    <p>Bring your skills into focus, find meaningful academic opportunities, and make your next move with confidence.</p>
+    <div class="actions"><a class="button button-primary" href="{% url 'register' %}">Get started <svg class="icon"><use href="#icon-arrow"/></svg></a><a class="button button-secondary" href="{% url 'login' %}">Sign in to your workspace</a></div>
+    <div class="hero-note"><span class="note-line"></span> A clearer path from learning to doing.</div>
+  </div>
+  <div class="hero-visual" aria-label="An illustration of the SkillBridge workspace">
+    <div class="visual-window"><div class="visual-top"><div class="window-dots"><i></i><i></i><i></i></div><span>YOUR WORKSPACE</span><span class="visual-mark">✳</span></div>
+      <div class="visual-intro"><span class="eyebrow">THE BIG PICTURE</span><h2>Skills meet opportunity.</h2><p>One thoughtful space for your academic journey.</p></div>
+      <div class="visual-stack">
+        <div class="visual-item"><span class="visual-item-icon violet">✳</span><div><strong>Build your profile</strong><small>Give your experience a home</small></div><span class="visual-arrow">↗</span></div>
+        <div class="visual-item"><span class="visual-item-icon green">◎</span><div><strong>Discover opportunities</strong><small>Find work that fits your interests</small></div><span class="visual-arrow">↗</span></div>
+        <div class="visual-item"><span class="visual-item-icon amber">◇</span><div><strong>Understand your fit</strong><small>See the skills behind the match</small></div><span class="visual-arrow">↗</span></div>
+      </div>
+      <div class="visual-caption"><span class="caption-dot"></span> BUILT FOR STUDENTS &amp; FACULTY <span>SKILLBRIDGE / 01</span></div>
+    </div>
+    <div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div>
+  </div>
+</section>
+<section class="feature-section">
+  <div class="feature-intro"><div><span class="eyebrow">A MORE MEANINGFUL CONNECTION</span><h2>Make your next step<br>the right one.</h2></div><p>From the skills you've built to the projects you want to join, everything has a place here.</p></div>
+  <div class="feature-strip">
+    <article><span class="feature-number">01 / PROFILE</span><div class="feature-icon">✳</div><h3>Show your strengths</h3><p>Bring skills, projects and certifications together in a profile that grows with you.</p></article>
+    <article><span class="feature-number">02 / DISCOVER</span><div class="feature-icon">◎</div><h3>Find your direction</h3><p>Explore internships, academic projects and research opportunities in one place.</p></article>
+    <article><span class="feature-number">03 / CONNECT</span><div class="feature-icon">◇</div><h3>Understand the fit</h3><p>See how your skills align with an opportunity's requirements, with a clear breakdown.</p></article>
+  </div>
+</section>
+<section class="closing-cta"><div><span class="eyebrow">YOUR NEXT CHAPTER</span><h2>There's more to your<br>story. Let's build it.</h2><p>Make space for the work you want to do next.</p></div><a class="button button-primary" href="{% url 'register' %}">Create an account <svg class="icon"><use href="#icon-arrow"/></svg></a></section>
+<footer class="public-footer"><a class="brand" href="{% url 'home' %}"><span class="brand-mark"><span></span><span></span><span></span><span></span></span> SkillBridge</a><span>Connecting skills with possibility.</span><a href="{% url 'login' %}">Sign in ↗</a></footer>
+{% endblock %}
