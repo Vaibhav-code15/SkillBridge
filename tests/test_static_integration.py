@@ -35,16 +35,15 @@ def test_local_runserver_serves_compiled_stylesheets():
                 time.sleep(0.1)
         else:
             raise AssertionError("Development server did not start")
-        for path, expected in [
-            ("app.css", b"tailwindcss"),
-            ("site.css", b".app-shell"),
-            ("premium.css", b".score-ring"),
-        ]:
+        for path, expected in [("app.css", b"tailwindcss")]:
             assert f"/static/css/{path}" in html
             with urlopen(f"http://127.0.0.1:{port}/static/css/{path}", timeout=5) as response:
                 assert response.status == 200
                 assert response.headers.get_content_type() == "text/css"
-                assert expected in response.read()
+                content = response.read()
+                assert expected in content
+                assert b".app-shell" in content
+                assert b".score-ring" in content
         for font in ("inter-latin-wght-normal.woff2", "plus-jakarta-sans-latin-wght-normal.woff2"):
             with urlopen(f"http://127.0.0.1:{port}/static/fonts/{font}", timeout=5) as response:
                 assert response.status == 200

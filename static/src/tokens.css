@@ -1,0 +1,11 @@
+@theme {
+  --color-midnight: #0b1026;
+  --color-deep-indigo: #181342;
+  --color-electric-violet: #6d28d9;
+  --color-royal-indigo: #4338ca;
+  --color-lavender: #a78bfa;
+  --color-sky: #38bdf8;
+  --color-mint: #2dd4bf;
+  --color-pearl: #f4f5fa;
+}
+:root{--navy:#0b1026;--deep:#181342;--violet:#6d28d9;--royal:#4338ca;--lavender:#a78bfa;--sky:#38bdf8;--mint:#2dd4bf;--pearl:#f4f5fa;--ink:#0f172a;--muted:#475569;--stroke:#e2e8f0}
