@@ -9,6 +9,22 @@ from matching.advanced import suggest_improvements
 from .matching import match_student, requirements_for, skill_levels_for
 from .models import Application, Notification, Opportunity, User
 
+MIN_PROFILE_SKILLS = 3
+
+
+@transaction.atomic
+def delete_empty_opportunity(faculty, opportunity_id):
+    if faculty.role != faculty.Role.FACULTY or faculty.is_superuser:
+        raise PermissionDenied
+    opportunity = (
+        Opportunity.objects.visible().select_for_update().get(pk=opportunity_id, faculty=faculty)
+    )
+    if opportunity.applications.exists():
+        raise ValidationError(
+            "This opportunity has applications. Close it instead to preserve records."
+        )
+    opportunity.delete()
+
 
 @transaction.atomic
 def set_user_active(actor, user_id, active):
@@ -48,7 +64,7 @@ def profile_completeness(
     checklist = (
         ("Academic details", bool(branch and branch.strip() and academic_year), "profile_edit"),
         ("Interests", bool(interests and interests.strip()), "profile_edit"),
-        ("At least three skills", skills_count >= 3, "skills"),
+        ("At least three skills", skills_count >= MIN_PROFILE_SKILLS, "skills"),
         ("At least one project", projects_count >= 1, "projects"),
         ("At least one certification", certifications_count >= 1, "certifications"),
     )
@@ -127,6 +143,8 @@ def apply_to_opportunity(student, opportunity_id):
 
 @transaction.atomic
 def withdraw_application(student, application_id):
+    if student.role != student.Role.STUDENT or student.is_superuser:
+        raise PermissionDenied
     application = (
         Application.objects.select_for_update()
         .select_related("opportunity")
@@ -142,6 +160,8 @@ def withdraw_application(student, application_id):
 
 @transaction.atomic
 def decide_application(faculty, application_id, status):
+    if faculty.role != faculty.Role.FACULTY or faculty.is_superuser:
+        raise PermissionDenied
     application = (
         Application.objects.select_for_update()
         .select_related("opportunity")

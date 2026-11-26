@@ -42,6 +42,7 @@ from .services import (
     apply_to_opportunity,
     close_expired_opportunities,
     decide_application,
+    delete_empty_opportunity,
     profile_completeness,
     recommend_opportunities,
     set_opportunity_removed,
@@ -398,13 +399,13 @@ def opportunity_applicants(request, pk):
 @role_required("faculty")
 @require_POST
 def opportunity_delete(request, pk):
-    item = get_object_or_404(Opportunity.objects.visible(), pk=pk, faculty=request.user)
-    if item.applications.exists():
-        messages.error(
-            request, "This opportunity has applications. Close it instead to preserve records."
-        )
+    try:
+        delete_empty_opportunity(request.user, pk)
+    except Opportunity.DoesNotExist as exc:
+        raise Http404 from exc
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
         return redirect("opportunity_detail", pk=pk)
-    item.delete()
     messages.success(request, "Opportunity removed.")
     return redirect("dashboard")
 
@@ -587,6 +588,9 @@ def team_gap(request, pk):
 @role_required("admin")
 def admin_reports(request):
     visible = Opportunity.objects.visible()
+    application_counts = list(
+        Application.objects.values("status").annotate(total=Count("pk")).order_by("status")
+    )
     data = {
         "user_counts": User.objects.values("role", "is_active")
         .annotate(total=Count("pk"))
@@ -596,9 +600,7 @@ def admin_reports(request):
         .order_by("status"),
         "opportunity_types": visible.values("type").annotate(total=Count("pk")).order_by("type"),
         "removed_count": Opportunity.objects.filter(is_removed=True).count(),
-        "application_counts": Application.objects.values("status")
-        .annotate(total=Count("pk"))
-        .order_by("status"),
+        "application_counts": application_counts,
         "active_skill_count": Skill.objects.filter(active=True).count(),
         "demanded_skills": Skill.objects.annotate(
             demand=Count("requiredskill", filter=Q(requiredskill__opportunity__is_removed=False))
