@@ -7,3 +7,5 @@ Inter is the body face and Plus Jakarta Sans the heading face; licensed local WO
 Keep forms, links and score values usable without JavaScript. Motion should be subtle, avoid delaying content, and respect `prefers-reduced-motion`. Do not invent scores or statistics. Preserve visible focus, labels, keyboard access, and 44px interaction targets.
 
 The Tailwind input imports the existing style layers along with `tokens.css`, `components.css` and page-specific layers into the single compiled stylesheet. Consolidating the inherited legacy layers further remains a maintenance task.
+
+The profile workspace groups editable portfolio sections, completeness and private resume management. The application form uses a labelled note field and explicit resume choices; a segmented match bar explains earned and available score points using the existing matching engine. Preserve native form controls and server-side validation as the fallback.

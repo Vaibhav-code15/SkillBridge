@@ -205,11 +205,18 @@ class Command(BaseCommand):
                 )
                 if opportunity.pk == first_opportunity_id and student_number in (1, 2):
                     applied_at = datetime(2026, 10, 1, 12)
-                Application.objects.get_or_create(
+                application, created = Application.objects.get_or_create(
                     student=student,
                     opportunity=opportunity,
                     defaults={"applied_at": timezone.make_aware(applied_at)},
                 )
+                if (
+                    opportunity.pk == first_opportunity_id
+                    and student_number in (1, 2)
+                    and (created or not application.note)
+                ):
+                    application.note = "I am interested in contributing and learning with the team."
+                    application.save(update_fields=["note"])
         faculty = User.objects.get(username="demo_faculty_13")
         admin = User.objects.get(username="demo_admin_16")
         expired, created = Opportunity.objects.get_or_create(

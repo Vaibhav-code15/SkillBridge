@@ -172,15 +172,35 @@ def match_breakdown(result):
     }
 
 
+def match_rows(result):
+    total = sum(skill.weight for skill in result.skills)
+    return [
+        {
+            "name": skill.name,
+            "student_level": skill.student_level,
+            "minimum": skill.minimum,
+            "weight": skill.weight,
+            "status": skill.status,
+            "points": float(skill.points),
+            "possible": 100 * skill.weight / total,
+        }
+        for skill in result.skills
+    ]
+
+
 @role_required("student")
 def profile_overview(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+    skills = list(request.user.student_skills.select_related("skill"))
     return render(
         request,
         "profile_overview.html",
         {
             "profile": profile,
-            "student_skills": request.user.student_skills.select_related("skill"),
+            "student_skills": skills,
+            "skills_chart": [
+                {"name": item.skill.name, "level": item.proficiency} for item in skills
+            ],
             "projects": request.user.projects.all(),
             "certifications": request.user.certifications.all(),
             "completeness": student_completeness(request.user, profile),
@@ -357,7 +377,7 @@ def opportunity_detail(request, pk, apply_form=None):
         fit_groups = [
             {
                 "label": label,
-                "skills": [skill for skill in fit.skills if skill.status == status],
+                "skills": [skill for skill in match_rows(fit) if skill["status"] == status],
             }
             for status, label in (
                 ("matched", "Matched"),
@@ -512,6 +532,7 @@ def opportunity_applicants(request, pk):
     for rank, application in enumerate(ranked, start=1):
         application.rank = rank
         application.match_result = results[application.pk]
+        application.match_rows = match_rows(application.match_result)
         application.student_profile = getattr(application.student, "profile", None)
         applicants.append(application)
     return render(
