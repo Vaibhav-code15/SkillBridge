@@ -61,6 +61,16 @@ document.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", () => button.closest(".message").remove());
   });
 
+  const note = document.querySelector("#id_note");
+  if (note) {
+    const counter = document.createElement("small");
+    counter.setAttribute("aria-live", "polite");
+    note.insertAdjacentElement("afterend", counter);
+    const updateCounter = () => { counter.textContent = `${note.value.length} / 1500 characters`; };
+    note.addEventListener("input", updateCounter);
+    updateCounter();
+  }
+
   const dialog = document.getElementById("confirm-dialog");
   let pendingForm = null;
   let pendingSubmitter = null;

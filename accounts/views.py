@@ -1,3 +1,4 @@
+from fractions import Fraction
 from functools import wraps
 
 from django.contrib import messages
@@ -155,6 +156,38 @@ def student_completeness(user, profile):
     )
 
 
+def match_breakdown(result):
+    if result.score is None:
+        return None
+    matched = sum(
+        (skill.points for skill in result.skills if skill.status == "matched"), Fraction()
+    )
+    partial = sum(
+        (skill.points for skill in result.skills if skill.status == "improvable"), Fraction()
+    )
+    return {
+        "matched": float(matched),
+        "partial": float(partial),
+        "available": float(100 - matched - partial),
+    }
+
+
+@role_required("student")
+def profile_overview(request):
+    profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+    return render(
+        request,
+        "profile_overview.html",
+        {
+            "profile": profile,
+            "student_skills": request.user.student_skills.select_related("skill"),
+            "projects": request.user.projects.all(),
+            "certifications": request.user.certifications.all(),
+            "completeness": student_completeness(request.user, profile),
+        },
+    )
+
+
 @role_required("student")
 def profile_edit(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
@@ -180,7 +213,7 @@ def profile_resume_upload(request):
             messages.error(request, exc.messages[0])
         else:
             messages.success(request, "Your resume was updated.")
-    return redirect("profile_edit")
+    return redirect("profile_overview")
 
 
 @role_required("student")
@@ -189,7 +222,7 @@ def profile_resume_remove(request):
     StudentProfile.objects.get_or_create(user=request.user)
     remove_profile_resume(request.user)
     messages.success(request, "Your profile resume was removed.")
-    return redirect("profile_edit")
+    return redirect("profile_overview")
 
 
 def _resume_download(file_field, name):
@@ -347,6 +380,7 @@ def opportunity_detail(request, pk, apply_form=None):
             "apply_form": apply_form or ApplicationForm(),
             "profile": profile,
             "boosts": boosts,
+            "breakdown": match_breakdown(fit) if fit else None,
         },
     )
 
@@ -555,12 +589,19 @@ def my_applications(request):
     applications = request.user.applications.select_related("opportunity").prefetch_related(
         "opportunity__requirements__skill"
     )
+    status = request.GET.get("status", "")
+    if status in Application.Status.values:
+        applications = applications.filter(status=status)
+    else:
+        status = ""
     levels = skill_levels_for(request.user)
     for application in applications:
         application.fit = match_student(
             requirements_for(application.opportunity), request.user, skill_levels=levels
         )
-    return render(request, "my_applications.html", {"applications": applications})
+    return render(
+        request, "my_applications.html", {"applications": applications, "selected_status": status}
+    )
 
 
 @role_required("student")

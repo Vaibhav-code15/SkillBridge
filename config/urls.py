@@ -46,6 +46,7 @@ urlpatterns = [
     path("notifications/read-all/", views.notification_read_all, name="notification_read_all"),
     path("notifications/<int:pk>/read/", views.notification_read, name="notification_read"),
     path("profile/", views.profile_edit, name="profile_edit"),
+    path("profile/overview/", views.profile_overview, name="profile_overview"),
     path("profile/resume/upload/", views.profile_resume_upload, name="profile_resume_upload"),
     path("profile/resume/remove/", views.profile_resume_remove, name="profile_resume_remove"),
     path("profile/resume/download/", views.profile_resume_download, name="profile_resume_download"),

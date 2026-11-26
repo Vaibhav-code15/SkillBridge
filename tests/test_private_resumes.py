@@ -127,3 +127,37 @@ def test_note_length_validation():
     )
     with pytest.raises(ValidationError):
         apply_to_opportunity(student, opportunity.pk, note="x" * 1501)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_profile_and_application_pages_escape_notes_and_show_resume(settings, tmp_path, client):
+    settings.PRIVATE_MEDIA_ROOT = tmp_path
+    student = User.objects.create_user("portfolio", role="student")
+    faculty = User.objects.create_user("owner", role="faculty")
+    StudentProfile.objects.create(user=student)
+    opportunity = Opportunity.objects.create(
+        faculty=faculty,
+        title="Fictional research",
+        description="Work",
+        type="research",
+        deadline=timezone.localdate() + timedelta(days=10),
+        status="published",
+    )
+    replace_profile_resume(student, pdf())
+    client.force_login(student)
+    assert client.get(reverse("profile_overview")).status_code == 200
+    response = client.post(
+        reverse("opportunity_apply", args=[opportunity.pk]),
+        {
+            "note": "<script>alert(1)</script>",
+            "resume_choice": "profile",
+        },
+    )
+    assert response.status_code == 302
+    response = client.get(reverse("my_applications"))
+    assert b"&lt;script&gt;" in response.content
+    assert b"Download resume.pdf" in response.content
+    client.force_login(faculty)
+    response = client.get(reverse("opportunity_applicants", args=[opportunity.pk]))
+    assert b"&lt;script&gt;" in response.content
+    assert b"Download resume" in response.content
