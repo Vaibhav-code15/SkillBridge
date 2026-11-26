@@ -8,7 +8,22 @@ The original estimates are retained as initial estimates, not actual velocity. S
 | 2 | US11 browse/search (3); US12 filters (3); US13 weighted matching (8); US14 explanations (5); US15 applications (3); US16 applicant view (2); US17 ranking (5). Total: 29. |
 | 3 | US18 withdrawal (2); US19 shortlisting (3); US20 application status (2); US21 recommendations (5); US22 skill suggestions (3); US23 notifications (3); US24 team gaps (5); US25 reports (3); US26 moderation (2); US27 deadline closure (2); US28 completeness (2). Total: 32. |
 
-Sprint 1 acceptance: users can register only as student or faculty and authenticate; students manage their own profile, skills (levels 1-4), projects and certifications; faculty manage their own opportunities and unique required skills (levels 1-4, weights 1-100); administrators manage a case-insensitively unique, deactivatable skill catalogue. Protected actions require the correct role and ownership.
+## Sprint 1 acceptance criteria (US1–US10)
+
+| Story | Acceptance criteria |
+| --- | --- |
+| US1 Registration (3) | Valid student and faculty registration creates an account with the selected role; invalid roles and privilege escalation are rejected. Student registration creates a profile. |
+| US2 Login and logout (3) | Active users can sign in with username and password and sign out by POST; invalid credentials or inactive accounts cannot establish access. |
+| US3 Profile (2) | Students can update their own branch, year and interests; year, when provided, is 1–8 and non-student roles are denied. |
+| US4 Add skills (3) | Students can add active catalogue skills with proficiency 1–4; duplicate skills and out-of-range levels are rejected. |
+| US5 Edit/remove skills (2) | Students can edit or remove only their own skills; level and uniqueness rules continue to apply and removal requires POST. |
+| US6 Projects (2) | Students can add, edit and remove their own projects; required fields and any supplied URL are validated. |
+| US7 Certifications (2) | Students can add, edit and remove their own certifications; required fields and any supplied date or URL are validated. |
+| US8 Opportunities (3) | Faculty can create and manage their own typed opportunities, deadlines and statuses; deletion is blocked when applications exist. |
+| US9 Required skills (5) | Owners manage unique required skills with proficiency 1–4 and weights 1–100; foreign access and invalid values are denied. |
+| US10 Skill catalogue (2) | Administrators can add, rename and deactivate catalogue skills; names are nonblank and case-insensitively unique, and non-admin access is denied. |
+
+Detailed scenarios, implementation paths, test evidence, manual checks and the traceability matrix for all 28 stories are in [Acceptance criteria](ACCEPTANCE_CRITERIA.md). The story statements there are reconstructed from the recorded backlog titles rather than claimed as verbatim originals.
 
 ## Sprint 2 acceptance criteria (US11-US17)
 
