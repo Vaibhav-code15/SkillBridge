@@ -28,6 +28,22 @@ Ranked applicants sort by score descending, then earlier application time, case-
 
 ## Opportunity availability and applications
 
-`Opportunity.objects.is_open()` and `Opportunity.is_open` use the same rule: status is published and the deadline is today or later according to Django's configured local date. Applications remain open through the deadline date. Expired opportunities are not automatically closed. `Application` records one student/opportunity pair, an applied status and an explicit timestamp; database uniqueness and indexes support duplicate protection and applicant retrieval.
+`Opportunity.objects.visible()` excludes soft-removed records; `is_open()` also requires a published status and deadline on or after Django's configured local date. Expired visible opportunities are closed by a service and management command, also invoked by the list and faculty dashboard. Applications remain open through the deadline date. Historical applications to removed opportunities remain visible to their student without a link. Faculty deletion is blocked when applications exist.
+
+Applications retain their unique student/opportunity pair, with status and last-change time. A transactional service enforces transitions and creates notifications when faculty decide; notifications are student-only. Team-gap analysis is restricted to owned academic-project and research opportunities and validates submitted members against their non-withdrawn applicants.
+
+```mermaid
+stateDiagram-v2
+    [*] --> applied
+    applied --> shortlisted
+    applied --> rejected
+    applied --> withdrawn
+    shortlisted --> rejected
+    rejected --> shortlisted
+    shortlisted --> withdrawn
+    withdrawn --> applied: reapply while open
+```
+
+For each improvable or missing skill, maximum gain in an opportunity is `100 * weight * (1 - credit) / total_weight`; gains are summed as exact fractions over open visible opportunities and shown as score points, not percentages. Example: a skill with weight 3 of total 4 and credit 1/2 can add `100 * 3 * 1/2 / 4 = 37.5` points for that opportunity. Team coverage takes the highest member proficiency per required skill, then applies the same weighted scoring and half-up rounding. For two equally weighted requirements, one fully covered and one half covered, team coverage is 75. No requirements are unscored.
 
 Proficiency is 1-4, and requirement weights are 1-100. Database constraints protect ranges and uniqueness. Matching is computed from current student skills when discovery, detail, and applicant pages render.

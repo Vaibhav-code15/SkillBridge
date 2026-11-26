@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — Sprint 3
+
+- Added application withdrawal, reapplication and faculty decisions, student history and notifications.
+- Added recommendations, improvement suggestions, team skill-gap analysis, administrator reports and moderation.
+- Added deadline closure, profile completeness, and guarded fictional demo scenarios. Review and integration remain pending.
+
 ## v0.2.0 - Sprint 2 (pending review and release)
 
 - Added paginated opportunity discovery with search and combined type/skill filters.
