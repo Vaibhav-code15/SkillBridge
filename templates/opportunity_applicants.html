@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'base.html' %}{% block title %}Applicants · {{ opportunity.title }} | SkillBridge{% endblock %}
 {% block breadcrumb %}<a href="{% url 'opportunity_detail' opportunity.pk %}">{{ opportunity.title }}</a> / Applicants{% endblock %}
 {% block content %}
 <div class="page-heading"><div><a class="back-link" href="{% url 'opportunity_detail' opportunity.pk %}">← Back to opportunity</a><h1>Applicants</h1><p>{{ opportunity.title }} · Ranked by current skill fit</p></div><div class="actions"><span class="badge">{{ applicants|length }} applicant{{ applicants|length|pluralize }}</span>{% if opportunity.type == 'project' or opportunity.type == 'research' %}<a class="button button-secondary" href="{% url 'team_gap' opportunity.pk %}">Analyze team skills</a>{% endif %}</div></div>
