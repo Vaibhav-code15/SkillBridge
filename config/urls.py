@@ -20,12 +20,17 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from accounts import views
+from accounts.forms import SkillBridgeAuthenticationForm
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", views.home, name="home"),
     path("register/", views.register, name="register"),
-    path("login/", auth_views.LoginView.as_view(), name="login"),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(authentication_form=SkillBridgeAuthenticationForm),
+        name="login",
+    ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("applications/", views.my_applications, name="my_applications"),
@@ -70,5 +75,13 @@ urlpatterns = [
         name="requirement_delete",
     ),
     path("catalogue/add/", views.catalogue_edit, name="catalogue_add"),
+    path("reports/", views.admin_reports, name="admin_reports"),
+    path("moderation/", views.moderation, name="moderation"),
+    path("moderation/users/<int:pk>/", views.moderate_user, name="moderate_user"),
+    path(
+        "moderation/opportunities/<int:pk>/",
+        views.moderate_opportunity,
+        name="moderate_opportunity",
+    ),
     path("catalogue/<int:pk>/edit/", views.catalogue_edit, name="catalogue_edit"),
 ]

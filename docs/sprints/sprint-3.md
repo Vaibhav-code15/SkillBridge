@@ -7,7 +7,7 @@
 | US22 | In progress | Pure function, service and improvement page added; end-to-end verification pending. |
 | US23 | In progress | Student notifications and inbox added; end-to-end verification pending. |
 | US24 | In progress | Team-gap UI and eligible-applicant validation added; end-to-end verification pending. |
-| US25–US26 | Not done | Implementation pending. |
+| US25–US26 | In progress | Reports and moderation added with initial access, deactivation and removal tests; end-to-end verification pending. |
 | US27–US28 | In progress | Closure service and profile checklist added with focused tests; end-to-end verification pending. |
 
 The Sprint 3 RED, GREEN and REFACTOR commits and CI links are in `docs/TDD.md`. Existing Sprint 1 and Sprint 2 tests remain in the suite.

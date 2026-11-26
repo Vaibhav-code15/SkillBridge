@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 
 from skills.services import skill_name_exists
 
@@ -22,6 +22,18 @@ class RegistrationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ["username", "first_name", "last_name", "email", "role", "password1", "password2"]
+
+
+class SkillBridgeAuthenticationForm(AuthenticationForm):
+    def clean(self):
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+        user = User.objects.filter(username=username, is_active=False).first() if username else None
+        if user and password and user.check_password(password):
+            raise forms.ValidationError(
+                "This account is inactive. Contact an administrator.", code="inactive"
+            )
+        return super().clean()
 
 
 class ProfileForm(forms.ModelForm):

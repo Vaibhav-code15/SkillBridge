@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -44,6 +44,8 @@ from .services import (
     decide_application,
     profile_completeness,
     recommend_opportunities,
+    set_opportunity_removed,
+    set_user_active,
     student_improvements,
     withdraw_application,
 )
@@ -580,3 +582,68 @@ def team_gap(request, pk):
             "result": result,
         },
     )
+
+
+@role_required("admin")
+def admin_reports(request):
+    visible = Opportunity.objects.visible()
+    data = {
+        "user_counts": User.objects.values("role", "is_active")
+        .annotate(total=Count("pk"))
+        .order_by("role", "is_active"),
+        "opportunity_status": visible.values("status")
+        .annotate(total=Count("pk"))
+        .order_by("status"),
+        "opportunity_types": visible.values("type").annotate(total=Count("pk")).order_by("type"),
+        "removed_count": Opportunity.objects.filter(is_removed=True).count(),
+        "application_counts": Application.objects.values("status")
+        .annotate(total=Count("pk"))
+        .order_by("status"),
+        "active_skill_count": Skill.objects.filter(active=True).count(),
+        "demanded_skills": Skill.objects.annotate(
+            demand=Count("requiredskill", filter=Q(requiredskill__opportunity__is_removed=False))
+        )
+        .filter(demand__gt=0)
+        .order_by("-demand", "name")[:5],
+    }
+    return render(request, "admin_reports.html", data)
+
+
+@role_required("admin")
+def moderation(request):
+    return render(
+        request,
+        "moderation.html",
+        {
+            "users": User.objects.order_by("username"),
+            "opportunities": Opportunity.objects.select_related("faculty").order_by("-created_at"),
+        },
+    )
+
+
+@role_required("admin")
+@require_POST
+def moderate_user(request, pk):
+    action = request.POST.get("active")
+    if action not in ("0", "1"):
+        return HttpResponseBadRequest("Invalid action.")
+    try:
+        set_user_active(request.user, pk, action == "1")
+    except User.DoesNotExist as exc:
+        raise Http404 from exc
+    messages.success(request, "User status updated.")
+    return redirect("moderation")
+
+
+@role_required("admin")
+@require_POST
+def moderate_opportunity(request, pk):
+    action = request.POST.get("removed")
+    if action not in ("0", "1"):
+        return HttpResponseBadRequest("Invalid action.")
+    try:
+        set_opportunity_removed(request.user, pk, action == "1")
+    except Opportunity.DoesNotExist as exc:
+        raise Http404 from exc
+    messages.success(request, "Opportunity moderation updated.")
+    return redirect("moderation")

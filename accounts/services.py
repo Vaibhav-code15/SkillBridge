@@ -7,7 +7,30 @@ from django.utils import timezone
 from matching.advanced import suggest_improvements
 
 from .matching import match_student, requirements_for, skill_levels_for
-from .models import Application, Notification, Opportunity
+from .models import Application, Notification, Opportunity, User
+
+
+@transaction.atomic
+def set_user_active(actor, user_id, active):
+    if not actor.is_superuser:
+        raise PermissionDenied
+    user = User.objects.select_for_update().get(pk=user_id)
+    if user.pk == actor.pk or user.is_superuser or user.is_staff:
+        raise PermissionDenied
+    user.is_active = active
+    user.save(update_fields=["is_active"])
+    return user
+
+
+@transaction.atomic
+def set_opportunity_removed(actor, opportunity_id, removed):
+    if not actor.is_superuser:
+        raise PermissionDenied
+    opportunity = Opportunity.objects.select_for_update().get(pk=opportunity_id)
+    opportunity.is_removed = removed
+    opportunity.removed_at = timezone.now() if removed else None
+    opportunity.save(update_fields=["is_removed", "removed_at"])
+    return opportunity
 
 
 def close_expired_opportunities(today=None):
