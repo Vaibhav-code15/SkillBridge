@@ -33,3 +33,9 @@ Sarah Abbas, Vaibhav Khandelwal, Anirudh Goel and Vinayak Arora are acknowledged
 ## Design system
 
 The interface uses midnight navy navigation, indigo and violet hero surfaces, pearl backgrounds, and category-specific accents. Inter and Plus Jakarta Sans are served locally with system fallbacks. Shared component and motion guidance is in `docs/DESIGN_SYSTEM.md`; Tailwind compiles the source layers into `static/css/app.css`.
+
+## Private resumes and application notes
+
+Students can manage a PDF resume in My Profile and optionally attach a separate snapshot and a plain-text note when applying. PDF uploads are limited to 5 MB and checked on the server. Students can download their own files; the opportunity owner can download an application snapshot only while the opportunity is visible and the application is not withdrawn. Replacing a profile resume does not alter submitted snapshots.
+
+Set `PRIVATE_MEDIA_ROOT` to a private directory outside the public static files. The default is `private_media/` in the project directory, ignored by Git. Deployments must provision persistent private storage, back it up securely and restrict filesystem access. Production storage and deployment configuration have not been verified.

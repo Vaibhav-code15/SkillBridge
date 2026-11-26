@@ -61,6 +61,43 @@ document.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", () => button.closest(".message").remove());
   });
 
+  const sectionLinks = document.querySelectorAll(".profile-sections a");
+  if (sectionLinks.length && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        sectionLinks.forEach((link) => {
+          if (link.hash === `#${entry.target.id}`) link.setAttribute("aria-current", "true");
+          else link.removeAttribute("aria-current");
+        });
+      });
+    }, { rootMargin: "-10% 0px -70% 0px" });
+    sectionLinks.forEach((link) => {
+      const section = document.getElementById(link.hash.slice(1));
+      if (section) observer.observe(section);
+    });
+  }
+
+  const dropZone = document.querySelector(".resume-drop");
+  const resumeInput = document.getElementById("profile-resume");
+  if (dropZone && resumeInput) {
+    dropZone.addEventListener("dragover", (event) => { event.preventDefault(); });
+    dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer.files.length) resumeInput.files = event.dataTransfer.files;
+    });
+  }
+
+  const note = document.querySelector("#id_note");
+  if (note) {
+    const counter = document.createElement("small");
+    counter.setAttribute("aria-live", "polite");
+    note.insertAdjacentElement("afterend", counter);
+    const updateCounter = () => { counter.textContent = `${note.value.length} / 1500 characters`; };
+    note.addEventListener("input", updateCounter);
+    updateCounter();
+  }
+
   const dialog = document.getElementById("confirm-dialog");
   let pendingForm = null;
   let pendingSubmitter = null;
@@ -83,6 +120,12 @@ document.addEventListener("DOMContentLoaded", () => {
           ? "Your current profile will be available to the opportunity owner."
           : withdrawing ? "You can reapply while the opportunity remains open."
           : "This action cannot be undone.";
+        if (applying) {
+          const choice = form.querySelector('input[name="resume_choice"]:checked');
+          const labels = { none: "No resume", profile: "Profile resume", upload: "Uploaded PDF" };
+          const noteText = form.querySelector('[name="note"]')?.value.trim();
+          dialog.querySelector("#confirm-description").textContent = `Resume: ${labels[choice?.value] || "No resume"}. ${noteText ? "Your note will be shared with the opportunity owner." : "No note added."}`;
+        }
         dialog.querySelector('[value="confirm"]').textContent = applying ? "Submit application" : withdrawing ? "Withdraw" : moderation ? "Confirm" : "Remove";
         dialog.showModal();
       });
@@ -97,4 +140,12 @@ document.addEventListener("DOMContentLoaded", () => {
       pendingSubmitter = null;
     });
   }
+  document.querySelectorAll(".apply-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      if (!event.defaultPrevented && event.submitter) {
+        event.submitter.disabled = true;
+        event.submitter.textContent = "Submitting?";
+      }
+    });
+  });
 });

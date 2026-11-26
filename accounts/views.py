@@ -1,3 +1,4 @@
+from fractions import Fraction
 from functools import wraps
 
 from django.contrib import messages
@@ -7,15 +8,16 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from matching import rank_candidates
-from matching.advanced import TeamMember, analyze_team_gap
+from matching.advanced import TeamMember, analyze_team_gap, suggest_improvements
 
 from .forms import (
+    ApplicationForm,
     CertificationForm,
     OpportunityForm,
     ProfileForm,
@@ -38,6 +40,7 @@ from .models import (
     StudentSkill,
     User,
 )
+from .private_files import display_name, private_resume_storage
 from .services import (
     apply_to_opportunity,
     close_expired_opportunities,
@@ -45,6 +48,8 @@ from .services import (
     delete_empty_opportunity,
     profile_completeness,
     recommend_opportunities,
+    remove_profile_resume,
+    replace_profile_resume,
     set_opportunity_removed,
     set_user_active,
     student_improvements,
@@ -151,6 +156,58 @@ def student_completeness(user, profile):
     )
 
 
+def match_breakdown(result):
+    if result.score is None:
+        return None
+    matched = sum(
+        (skill.points for skill in result.skills if skill.status == "matched"), Fraction()
+    )
+    partial = sum(
+        (skill.points for skill in result.skills if skill.status == "improvable"), Fraction()
+    )
+    return {
+        "matched": float(matched),
+        "partial": float(partial),
+        "available": float(100 - matched - partial),
+    }
+
+
+def match_rows(result):
+    total = sum(skill.weight for skill in result.skills)
+    return [
+        {
+            "name": skill.name,
+            "student_level": skill.student_level,
+            "minimum": skill.minimum,
+            "weight": skill.weight,
+            "status": skill.status,
+            "points": float(skill.points),
+            "possible": 100 * skill.weight / total,
+        }
+        for skill in result.skills
+    ]
+
+
+@role_required("student")
+def profile_overview(request):
+    profile, _ = StudentProfile.objects.get_or_create(user=request.user)
+    skills = list(request.user.student_skills.select_related("skill"))
+    return render(
+        request,
+        "profile_overview.html",
+        {
+            "profile": profile,
+            "student_skills": skills,
+            "skills_chart": [
+                {"name": item.skill.name, "level": item.proficiency} for item in skills
+            ],
+            "projects": request.user.projects.all(),
+            "certifications": request.user.certifications.all(),
+            "completeness": student_completeness(request.user, profile),
+        },
+    )
+
+
 @role_required("student")
 def profile_edit(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
@@ -160,6 +217,82 @@ def profile_edit(request):
         "Edit profile",
         extra={"completeness": student_completeness(request.user, profile)},
     )
+
+
+@role_required("student")
+@require_POST
+def profile_resume_upload(request):
+    upload = request.FILES.get("resume")
+    if not upload:
+        messages.error(request, "Choose a PDF resume to upload.")
+    else:
+        StudentProfile.objects.get_or_create(user=request.user)
+        try:
+            replace_profile_resume(request.user, upload)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+        else:
+            messages.success(request, "Your resume was updated.")
+    return redirect("profile_overview")
+
+
+@role_required("student")
+@require_POST
+def profile_resume_remove(request):
+    StudentProfile.objects.get_or_create(user=request.user)
+    remove_profile_resume(request.user)
+    messages.success(request, "Your profile resume was removed.")
+    return redirect("profile_overview")
+
+
+def _resume_download(file_field, name):
+    if not file_field:
+        raise Http404
+    try:
+        stream = private_resume_storage.open(file_field.name, "rb")
+    except OSError as exc:
+        raise Http404 from exc
+    response = FileResponse(
+        stream,
+        as_attachment=True,
+        filename=display_name(name or "resume.pdf"),
+        content_type="application/pdf",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+def profile_resume_download(request):
+    if (
+        not request.user.is_authenticated
+        or request.user.role != User.Role.STUDENT
+        or request.user.is_superuser
+    ):
+        raise Http404
+    profile = get_object_or_404(StudentProfile, user=request.user)
+    return _resume_download(profile.resume, profile.resume_name)
+
+
+def application_resume_download(request, pk):
+    if not request.user.is_authenticated:
+        raise Http404
+    application = get_object_or_404(Application.objects.select_related("opportunity"), pk=pk)
+    student_owner = (
+        request.user.role == User.Role.STUDENT
+        and not request.user.is_superuser
+        and application.student_id == request.user.pk
+    )
+    faculty_owner = (
+        request.user.role == User.Role.FACULTY
+        and not request.user.is_superuser
+        and application.opportunity.faculty_id == request.user.pk
+        and application.status != Application.Status.WITHDRAWN
+        and not application.opportunity.is_removed
+    )
+    if not (student_owner or faculty_owner):
+        raise Http404
+    return _resume_download(application.resume, application.resume_name)
 
 
 @role_required("student")
@@ -212,7 +345,7 @@ def opportunity_edit(request, pk=None):
 
 
 @login_required
-def opportunity_detail(request, pk):
+def opportunity_detail(request, pk, apply_form=None):
     item = get_object_or_404(
         Opportunity.objects.visible().prefetch_related("requirements__skill"), pk=pk
     )
@@ -233,14 +366,18 @@ def opportunity_detail(request, pk):
     application = None
     fit_groups = []
     has_skills = False
+    boosts = []
+    profile = None
     if is_student:
         levels = skill_levels_for(request.user)
         has_skills = bool(levels)
         fit = match_student(requirements_for(item), request.user, skill_levels=levels)
+        boosts = suggest_improvements(levels, [requirements_for(item)])[:2]
+        profile = getattr(request.user, "profile", None)
         fit_groups = [
             {
                 "label": label,
-                "skills": [skill for skill in fit.skills if skill.status == status],
+                "skills": [skill for skill in match_rows(fit) if skill["status"] == status],
             }
             for status, label in (
                 ("matched", "Matched"),
@@ -260,6 +397,10 @@ def opportunity_detail(request, pk):
             "fit_groups": fit_groups,
             "has_skills": has_skills,
             "application": application,
+            "apply_form": apply_form or ApplicationForm(),
+            "profile": profile,
+            "boosts": boosts,
+            "breakdown": match_breakdown(fit) if fit else None,
         },
     )
 
@@ -333,8 +474,18 @@ def opportunity_apply(request, pk):
     item = get_object_or_404(Opportunity.objects.visible(), pk=pk)
     if item.status == Opportunity.Status.DRAFT:
         raise Http404
+    form = ApplicationForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return opportunity_detail(request, pk=item.pk, apply_form=form)
     try:
-        _, created = apply_to_opportunity(request.user, item.pk)
+        choice = form.cleaned_data["resume_choice"]
+        _, created = apply_to_opportunity(
+            request.user,
+            item.pk,
+            note=form.cleaned_data["note"],
+            resume=form.cleaned_data["resume"],
+            use_profile_resume=choice == "profile",
+        )
     except ValidationError as exc:
         messages.error(request, exc.messages[0])
     else:
@@ -381,6 +532,8 @@ def opportunity_applicants(request, pk):
     for rank, application in enumerate(ranked, start=1):
         application.rank = rank
         application.match_result = results[application.pk]
+        application.match_rows = match_rows(application.match_result)
+        application.breakdown = match_breakdown(application.match_result)
         application.student_profile = getattr(application.student, "profile", None)
         applicants.append(application)
     return render(
@@ -458,12 +611,19 @@ def my_applications(request):
     applications = request.user.applications.select_related("opportunity").prefetch_related(
         "opportunity__requirements__skill"
     )
+    status = request.GET.get("status", "")
+    if status in Application.Status.values:
+        applications = applications.filter(status=status)
+    else:
+        status = ""
     levels = skill_levels_for(request.user)
     for application in applications:
         application.fit = match_student(
             requirements_for(application.opportunity), request.user, skill_levels=levels
         )
-    return render(request, "my_applications.html", {"applications": applications})
+    return render(
+        request, "my_applications.html", {"applications": applications, "selected_status": status}
+    )
 
 
 @role_required("student")

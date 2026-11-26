@@ -1,5 +1,11 @@
 # Changelog
 
+## Enhancements after Sprint 3
+
+- Added descriptive page titles and branded error pages.
+- Added a profile workspace, optional application notes and privately stored PDF resume snapshots.
+- Added application filters, score explanations and opportunity-specific improvement suggestions.
+
 ## Unreleased — Sprint 3
 
 - Added application withdrawal, reapplication and faculty decisions, student history and notifications.

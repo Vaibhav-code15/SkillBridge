@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="SkillBridge connects students and faculty through academic opportunities and explainable skill matching.">
   <meta name="theme-color" content="#f8fafc">
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <title>{% block title %}SkillBridge{% endblock %}</title>
@@ -30,7 +31,7 @@
     <nav>
       <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="icon"><use href="#icon-grid"/></svg> Overview</a>
       {% if user.role == 'student' or user.role == 'faculty' %}<a class="nav-link {% if request.resolver_match.url_name == 'opportunity_list' %}active{% endif %}" href="{% url 'opportunity_list' %}"><svg class="icon"><use href="#icon-search"/></svg> Opportunities</a>{% endif %}
-      {% if user.role == 'student' %}<a class="nav-link" href="{% url 'profile_edit' %}"><svg class="icon"><use href="#icon-user"/></svg> My profile</a><a class="nav-link" href="{% url 'my_applications' %}">My applications</a><a class="nav-link" href="{% url 'recommendations' %}">Recommended</a><a class="nav-link" href="{% url 'improvements' %}">Skill improvements</a><a class="nav-link" href="{% url 'notification_inbox' %}">Notifications {% if unread_notification_count %}({{ unread_notification_count }}){% endif %}</a>{% elif user.role == 'faculty' %}<a class="nav-link" href="{% url 'opportunity_add' %}"><svg class="icon"><use href="#icon-plus"/></svg> New opportunity</a>{% elif user.is_superuser %}<a class="nav-link" href="{% url 'catalogue_add' %}"><svg class="icon"><use href="#icon-plus"/></svg> Add skill</a>{% endif %}
+      {% if user.role == 'student' %}<a class="nav-link" href="{% url 'profile_overview' %}"><svg class="icon"><use href="#icon-user"/></svg> My profile</a><a class="nav-link" href="{% url 'my_applications' %}">My applications</a><a class="nav-link" href="{% url 'recommendations' %}">Recommended</a><a class="nav-link" href="{% url 'improvements' %}">Skill improvements</a><a class="nav-link" href="{% url 'notification_inbox' %}">Notifications {% if unread_notification_count %}({{ unread_notification_count }}){% endif %}</a>{% elif user.role == 'faculty' %}<a class="nav-link" href="{% url 'opportunity_add' %}"><svg class="icon"><use href="#icon-plus"/></svg> New opportunity</a>{% elif user.is_superuser %}<a class="nav-link" href="{% url 'catalogue_add' %}"><svg class="icon"><use href="#icon-plus"/></svg> Add skill</a>{% endif %}
       {% if user.is_superuser %}<a class="nav-link" href="{% url 'admin_reports' %}">Summary reports</a><a class="nav-link" href="{% url 'moderation' %}">Moderation</a>{% endif %}
     </nav>
     <div class="sidebar-bottom"><div class="sidebar-person"><span class="avatar">{{ user.username|first|upper }}</span><span><strong>{{ user.get_full_name|default:user.username }}</strong><small>{% if user.is_superuser %}Administrator{% else %}{{ user.get_role_display }}{% endif %}</small></span></div><form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="logout" type="submit">Sign out <span aria-hidden="true">↗</span></button></form></div>
