@@ -13,6 +13,7 @@ from .models import (
     StudentSkill,
     User,
 )
+from .private_files import validate_pdf
 
 
 class RegistrationForm(UserCreationForm):
@@ -34,6 +35,26 @@ class SkillBridgeAuthenticationForm(AuthenticationForm):
                 "This account is inactive. Contact an administrator.", code="inactive"
             )
         return super().clean()
+
+
+class ApplicationForm(forms.Form):
+    note = forms.CharField(required=False, max_length=1500, strip=True, widget=forms.Textarea)
+    resume_choice = forms.ChoiceField(
+        required=False,
+        choices=[("none", "No resume"), ("profile", "Profile resume"), ("upload", "Upload a PDF")],
+    )
+    resume = forms.FileField(required=False, validators=[validate_pdf])
+
+    def clean(self):
+        data = super().clean()
+        choice = data.get("resume_choice") or "none"
+        upload = data.get("resume")
+        if choice == "upload" and not upload and "resume" not in self.errors:
+            self.add_error("resume", "Choose a PDF resume to upload.")
+        if choice != "upload" and upload:
+            self.add_error("resume", "Choose the upload option to attach a file.")
+        data["resume_choice"] = choice
+        return data
 
 
 class ProfileForm(forms.ModelForm):

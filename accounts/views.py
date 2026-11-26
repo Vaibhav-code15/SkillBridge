@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -16,6 +16,7 @@ from matching import rank_candidates
 from matching.advanced import TeamMember, analyze_team_gap
 
 from .forms import (
+    ApplicationForm,
     CertificationForm,
     OpportunityForm,
     ProfileForm,
@@ -38,6 +39,7 @@ from .models import (
     StudentSkill,
     User,
 )
+from .private_files import display_name, private_resume_storage
 from .services import (
     apply_to_opportunity,
     close_expired_opportunities,
@@ -45,6 +47,8 @@ from .services import (
     delete_empty_opportunity,
     profile_completeness,
     recommend_opportunities,
+    remove_profile_resume,
+    replace_profile_resume,
     set_opportunity_removed,
     set_user_active,
     student_improvements,
@@ -160,6 +164,82 @@ def profile_edit(request):
         "Edit profile",
         extra={"completeness": student_completeness(request.user, profile)},
     )
+
+
+@role_required("student")
+@require_POST
+def profile_resume_upload(request):
+    upload = request.FILES.get("resume")
+    if not upload:
+        messages.error(request, "Choose a PDF resume to upload.")
+    else:
+        StudentProfile.objects.get_or_create(user=request.user)
+        try:
+            replace_profile_resume(request.user, upload)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
+        else:
+            messages.success(request, "Your resume was updated.")
+    return redirect("profile_edit")
+
+
+@role_required("student")
+@require_POST
+def profile_resume_remove(request):
+    StudentProfile.objects.get_or_create(user=request.user)
+    remove_profile_resume(request.user)
+    messages.success(request, "Your profile resume was removed.")
+    return redirect("profile_edit")
+
+
+def _resume_download(file_field, name):
+    if not file_field:
+        raise Http404
+    try:
+        stream = private_resume_storage.open(file_field.name, "rb")
+    except OSError as exc:
+        raise Http404 from exc
+    response = FileResponse(
+        stream,
+        as_attachment=True,
+        filename=display_name(name or "resume.pdf"),
+        content_type="application/pdf",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+def profile_resume_download(request):
+    if (
+        not request.user.is_authenticated
+        or request.user.role != User.Role.STUDENT
+        or request.user.is_superuser
+    ):
+        raise Http404
+    profile = get_object_or_404(StudentProfile, user=request.user)
+    return _resume_download(profile.resume, profile.resume_name)
+
+
+def application_resume_download(request, pk):
+    if not request.user.is_authenticated:
+        raise Http404
+    application = get_object_or_404(Application.objects.select_related("opportunity"), pk=pk)
+    student_owner = (
+        request.user.role == User.Role.STUDENT
+        and not request.user.is_superuser
+        and application.student_id == request.user.pk
+    )
+    faculty_owner = (
+        request.user.role == User.Role.FACULTY
+        and not request.user.is_superuser
+        and application.opportunity.faculty_id == request.user.pk
+        and application.status != Application.Status.WITHDRAWN
+        and not application.opportunity.is_removed
+    )
+    if not (student_owner or faculty_owner):
+        raise Http404
+    return _resume_download(application.resume, application.resume_name)
 
 
 @role_required("student")
@@ -333,8 +413,21 @@ def opportunity_apply(request, pk):
     item = get_object_or_404(Opportunity.objects.visible(), pk=pk)
     if item.status == Opportunity.Status.DRAFT:
         raise Http404
+    form = ApplicationForm(request.POST, request.FILES)
+    if not form.is_valid():
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
+        return redirect("opportunity_detail", pk=item.pk)
     try:
-        _, created = apply_to_opportunity(request.user, item.pk)
+        choice = form.cleaned_data["resume_choice"]
+        _, created = apply_to_opportunity(
+            request.user,
+            item.pk,
+            note=form.cleaned_data["note"],
+            resume=form.cleaned_data["resume"],
+            use_profile_resume=choice == "profile",
+        )
     except ValidationError as exc:
         messages.error(request, exc.messages[0])
     else:

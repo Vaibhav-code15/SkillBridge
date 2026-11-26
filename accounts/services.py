@@ -7,9 +7,52 @@ from django.utils import timezone
 from matching.advanced import suggest_improvements
 
 from .matching import match_student, requirements_for, skill_levels_for
-from .models import Application, Notification, Opportunity, User
+from .models import Application, Notification, Opportunity, StudentProfile, User
+from .private_files import (
+    delete_private_file,
+    display_name,
+    private_resume_storage,
+    resume_path,
+    validate_pdf,
+)
 
 MIN_PROFILE_SKILLS = 3
+
+
+@transaction.atomic
+def replace_profile_resume(student, upload):
+    if student.role != student.Role.STUDENT or student.is_superuser:
+        raise PermissionDenied
+    validate_pdf(upload)
+    profile = StudentProfile.objects.select_for_update().get(user=student)
+    old_name = profile.resume.name if profile.resume else ""
+    stored = private_resume_storage.save(resume_path(profile, upload.name), upload)
+    try:
+        profile.resume = stored
+        profile.resume_name = display_name(upload.name)
+        profile.resume_size = upload.size
+        profile.save(update_fields=["resume", "resume_name", "resume_size"])
+    except Exception:
+        delete_private_file(stored)
+        raise
+    if old_name:
+        transaction.on_commit(lambda: delete_private_file(old_name))
+    return profile
+
+
+@transaction.atomic
+def remove_profile_resume(student):
+    if student.role != student.Role.STUDENT or student.is_superuser:
+        raise PermissionDenied
+    profile = StudentProfile.objects.select_for_update().get(user=student)
+    old_name = profile.resume.name if profile.resume else ""
+    profile.resume = ""
+    profile.resume_name = ""
+    profile.resume_size = None
+    profile.save(update_fields=["resume", "resume_name", "resume_size"])
+    if old_name:
+        transaction.on_commit(lambda: delete_private_file(old_name))
+    return profile
 
 
 @transaction.atomic
@@ -114,7 +157,7 @@ def student_improvements(student):
 
 
 @transaction.atomic
-def apply_to_opportunity(student, opportunity_id):
+def apply_to_opportunity(student, opportunity_id, note="", resume=None, use_profile_resume=False):
     opportunity = Opportunity.objects.visible().select_for_update().get(pk=opportunity_id)
     if student.role != student.Role.STUDENT or student.is_superuser:
         raise PermissionDenied
@@ -127,18 +170,68 @@ def apply_to_opportunity(student, opportunity_id):
     )
     if application:
         if application.status == Application.Status.WITHDRAWN:
+            pass
+        elif application.status == Application.Status.REJECTED:
+            raise ValidationError("Rejected applications cannot be resubmitted.")
+        else:
+            return application, False
+    note = (note or "").strip()
+    if len(note) > 1500:
+        raise ValidationError("The application note must be at most 1,500 characters.")
+    if resume and use_profile_resume:
+        raise ValidationError("Choose either your profile resume or a new upload.")
+    source = resume
+    name = display_name(resume.name) if resume else ""
+    if use_profile_resume:
+        profile = getattr(student, "profile", None)
+        if not profile or not profile.resume:
+            raise ValidationError("Upload a profile resume before attaching it.")
+        try:
+            source = profile.resume.open("rb")
+            name = profile.resume_name or "resume.pdf"
+        except OSError as exc:
+            raise ValidationError(
+                "Your profile resume is unavailable. Please upload it again."
+            ) from exc
+    stored = ""
+    try:
+        if source:
+            validate_pdf(source)
+            stored = private_resume_storage.save(resume_path(None, name), source)
+        old_resume = application.resume.name if application and application.resume else ""
+        if application:
             application.status = Application.Status.APPLIED
             application.applied_at = application.status_changed_at = timezone.now()
-            application.save(update_fields=["status", "applied_at", "status_changed_at"])
-            return application, True
-        if application.status == Application.Status.REJECTED:
-            raise ValidationError("Rejected applications cannot be resubmitted.")
-        return application, False
-    try:
-        with transaction.atomic():
-            return Application.objects.create(student=student, opportunity=opportunity), True
-    except IntegrityError:
-        return Application.objects.get(student=student, opportunity=opportunity), False
+        else:
+            application = Application(student=student, opportunity=opportunity)
+        application.note = note
+        application.resume = stored
+        application.resume_name = name
+        application.resume_size = source.size if source else None
+        application.full_clean()
+        if application.resume:
+            application.resume.close()
+        try:
+            with transaction.atomic():
+                application.save()
+        except IntegrityError:
+            existing = Application.objects.filter(student=student, opportunity=opportunity).first()
+            if existing is None:
+                raise
+            if stored:
+                delete_private_file(stored)
+                stored = ""
+            return existing, False
+        if old_resume:
+            transaction.on_commit(lambda: delete_private_file(old_resume))
+        return application, True
+    except Exception:
+        if stored:
+            delete_private_file(stored)
+        raise
+    finally:
+        if use_profile_resume and source:
+            source.close()
 
 
 @transaction.atomic

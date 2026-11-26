@@ -3,6 +3,8 @@ from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
 
+from .private_files import private_resume_storage, resume_path, validate_pdf
+
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -17,6 +19,11 @@ class StudentProfile(models.Model):
     branch = models.CharField(max_length=100, blank=True)
     academic_year = models.PositiveSmallIntegerField(null=True, blank=True)
     interests = models.TextField(blank=True)
+    resume = models.FileField(
+        storage=private_resume_storage, upload_to=resume_path, validators=[validate_pdf], blank=True
+    )
+    resume_name = models.CharField(max_length=200, blank=True)
+    resume_size = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -162,6 +169,16 @@ class Application(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)
     applied_at = models.DateTimeField(default=timezone.now, editable=False)
     status_changed_at = models.DateTimeField(default=timezone.now)
+    note = models.TextField(blank=True, max_length=1500)
+    resume = models.FileField(
+        storage=private_resume_storage, upload_to=resume_path, validators=[validate_pdf], blank=True
+    )
+    resume_name = models.CharField(max_length=200, blank=True)
+    resume_size = models.PositiveIntegerField(null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        self.note = (self.note or "").strip()
 
     class Meta:
         ordering = ["applied_at", "pk"]
