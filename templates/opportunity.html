@@ -9,9 +9,9 @@
   </div>
   {% if is_owner %}<div class="actions"><a class="button button-secondary" href="{% url 'opportunity_edit' opportunity.pk %}">Edit opportunity</a><a class="button button-primary" href="{% url 'opportunity_applicants' opportunity.pk %}">View applicants</a></div>{% endif %}
 </div>
-<div class="dashboard-grid">
+<div class="dashboard-grid detail-grid">
   <section class="card">
-    <h2>About this opportunity</h2>
+    <h2>About this opportunity</h2><p class="muted">Faculty: {{ opportunity.faculty.get_full_name|default:opportunity.faculty.username }}</p>
     <div class="prose">{{ opportunity.description|linebreaks }}</div>
     {% if is_owner %}<form method="post" action="{% url 'opportunity_delete' opportunity.pk %}">{% csrf_token %}<button class="danger-link">Delete opportunity</button></form>{% endif %}
   </section>

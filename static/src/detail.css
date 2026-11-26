@@ -5,3 +5,7 @@
 .portfolio-cover{background:linear-gradient(120deg,#181342,#312075 70%,#4338ca);color:#fff;border:0}.portfolio-cover h2,.portfolio-cover p{color:#fff}.portfolio-cover .large-avatar{background:#fff;color:#4338ca}.profile-sections{position:sticky;top:0;z-index:5;background:#f4f5fa;padding:.65rem 0;overflow-x:auto;white-space:nowrap;flex-wrap:nowrap}.profile-sections a{padding:.7rem .9rem;border-radius:.6rem}.profile-sections a[aria-current=true]{background:#eae7ff;color:#4338ca;font-weight:700}@media(max-width:800px){.profile-sections{top:0}.portfolio-cover .profile-identity{align-items:flex-start}}
 
 .ring-empty{visibility:hidden}.fit-levels{display:flex;gap:1.5rem;flex-wrap:wrap;margin:.5rem 0}.fit-levels small{display:block}
+
+.resume-drop{border:1px dashed #a5a6c4;border-radius:12px;padding:1rem;margin:1rem 0;background:#fafaff}
+
+@media(min-width:801px){.detail-grid .fit-panel{grid-column:2;grid-row:1 / span 2;align-self:start}}

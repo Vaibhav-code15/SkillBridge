@@ -78,6 +78,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const dropZone = document.querySelector(".resume-drop");
+  const resumeInput = document.getElementById("profile-resume");
+  if (dropZone && resumeInput) {
+    dropZone.addEventListener("dragover", (event) => { event.preventDefault(); });
+    dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer.files.length) resumeInput.files = event.dataTransfer.files;
+    });
+  }
+
   const note = document.querySelector("#id_note");
   if (note) {
     const counter = document.createElement("small");

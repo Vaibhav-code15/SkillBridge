@@ -533,6 +533,7 @@ def opportunity_applicants(request, pk):
         application.rank = rank
         application.match_result = results[application.pk]
         application.match_rows = match_rows(application.match_result)
+        application.breakdown = match_breakdown(application.match_result)
         application.student_profile = getattr(application.student, "profile", None)
         applicants.append(application)
     return render(
