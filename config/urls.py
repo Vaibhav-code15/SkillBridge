@@ -20,14 +20,31 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from accounts import views
+from accounts.forms import SkillBridgeAuthenticationForm
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", views.home, name="home"),
     path("register/", views.register, name="register"),
-    path("login/", auth_views.LoginView.as_view(), name="login"),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(authentication_form=SkillBridgeAuthenticationForm),
+        name="login",
+    ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("applications/", views.my_applications, name="my_applications"),
+    path("recommendations/", views.recommendations, name="recommendations"),
+    path("improvements/", views.improvements, name="improvements"),
+    path(
+        "applications/<int:pk>/withdraw/", views.application_withdraw, name="application_withdraw"
+    ),
+    path(
+        "applications/<int:pk>/decision/", views.application_decision, name="application_decision"
+    ),
+    path("notifications/", views.notification_inbox, name="notification_inbox"),
+    path("notifications/read-all/", views.notification_read_all, name="notification_read_all"),
+    path("notifications/<int:pk>/read/", views.notification_read, name="notification_read"),
     path("profile/", views.profile_edit, name="profile_edit"),
     path("portfolio/<str:kind>/add/", views.student_item, name="student_add"),
     path("portfolio/<str:kind>/<int:pk>/edit/", views.student_item, name="student_edit"),
@@ -42,6 +59,7 @@ urlpatterns = [
         name="opportunity_applicants",
     ),
     path("opportunities/<int:pk>/edit/", views.opportunity_edit, name="opportunity_edit"),
+    path("opportunities/<int:pk>/team-gap/", views.team_gap, name="team_gap"),
     path("opportunities/<int:pk>/delete/", views.opportunity_delete, name="opportunity_delete"),
     path(
         "opportunities/<int:pk>/requirements/add/", views.requirement_edit, name="requirement_add"
@@ -57,5 +75,13 @@ urlpatterns = [
         name="requirement_delete",
     ),
     path("catalogue/add/", views.catalogue_edit, name="catalogue_add"),
+    path("reports/", views.admin_reports, name="admin_reports"),
+    path("moderation/", views.moderation, name="moderation"),
+    path("moderation/users/<int:pk>/", views.moderate_user, name="moderate_user"),
+    path(
+        "moderation/opportunities/<int:pk>/",
+        views.moderate_opportunity,
+        name="moderate_opportunity",
+    ),
     path("catalogue/<int:pk>/edit/", views.catalogue_edit, name="catalogue_edit"),
 ]

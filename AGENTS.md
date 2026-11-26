@@ -8,7 +8,7 @@ Keep main stable. Do not rewrite published history. Record only real collaborati
 
 ## Current sprint
 
-Maintain the Sprint 1 and Sprint 2 implementation and its genuine TDD history. The current work is a frontend-only redesign; do not implement Sprint 3. Merge only after successful CI, required human review, and explicit approval.
+Maintain the Sprint 1 and Sprint 2 implementation and its genuine TDD history. The current work is Sprint 3 by Vaibhav, limited to US18–US28. Preserve genuine TDD evidence. Merge only after successful CI, required human review, and explicit approval.
 
 ## Design system
 

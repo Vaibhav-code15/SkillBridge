@@ -190,9 +190,16 @@ def test_seed_is_guarded_and_repeatable(monkeypatch):
         for application in tied_applications
     ] == [0, 0]
     call_command("seed_demo")
-    assert counts == (16, 28, 9)
+    assert counts == (17, 28, 11)
     assert counts == (User.objects.count(), Skill.objects.count(), Opportunity.objects.count())
     assert application_count == Application.objects.count()
+    assert set(Application.objects.values_list("status", flat=True)) == {
+        "applied",
+        "shortlisted",
+        "rejected",
+        "withdrawn",
+    }
+    assert Opportunity.objects.filter(is_removed=True, applications__isnull=False).exists()
 
 
 @pytest.mark.django_db

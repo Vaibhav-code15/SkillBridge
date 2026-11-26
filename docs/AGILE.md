@@ -22,7 +22,25 @@ Sprint 1 acceptance: users can register only as student or faculty and authentic
 | US16 Applicant view (2) | Only the owning faculty member can view applicants. The list includes name, branch/year, interests, skills, projects and certifications, with related data loaded in batches. |
 | US17 Ranking (5) | Applicant scores are calculated from current profiles and sorted by score descending, earlier application time, case-insensitive applicant name and stable application ID. Unscored entries follow scored entries; each score can expand to a per-skill breakdown. |
 
-The open rule is published status with a deadline on or after the configured local date. Expired records are not automatically closed in Sprint 2. Sprint 3 remains pending.
+The open rule is published status with a deadline on or after the configured local date. Sprint 3 closes expired visible opportunities on list and faculty dashboard visits and through a management command.
+
+## Sprint 3 acceptance criteria (US18–US28)
+
+| Story | Acceptance criteria |
+| --- | --- |
+| US18 | Students withdraw their own applied or shortlisted application and may reapply on the same row while open; rejected applications cannot be resubmitted. |
+| US19 | Owning faculty shortlist or reject eligible applicants; withdrawn entries are separated from rankings. |
+| US20 | Students see application status and change date, including removed-opportunity history without links or actions. |
+| US21 | Recommendations exclude active applications, zero and unscored matches and rank by score, deadline, title and ID. |
+| US22 | Missing or improvable skills are ranked by exact total potential score points, with target level and affected-opportunity count. |
+| US23 | Students receive transactional faculty-decision notifications and can mark their own notifications read. |
+| US24 | Owners analyze non-withdrawn applicants for project/research opportunities; invalid selections are rejected. |
+| US25 | Administrators see real user, opportunity, application and skill aggregates. |
+| US26 | Administrators can deactivate non-admin users and soft-remove or restore opportunities without deleting history. |
+| US27 | Expired visible published opportunities close idempotently after the deadline date. |
+| US28 | Five equally weighted profile checks are displayed on the student dashboard and profile page. |
+
+Security-sensitive Sprint 3 cases expand the test suite beyond the original 16–20-test target. Story completion remains subject to review and integration.
 
 ## Human records
 

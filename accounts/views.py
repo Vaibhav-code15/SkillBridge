@@ -3,14 +3,17 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Prefetch, Q
-from django.http import Http404, HttpResponseForbidden
+from django.db.models import Count, Prefetch, Q
+from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from matching import rank_candidates
+from matching.advanced import TeamMember, analyze_team_gap
 
 from .forms import (
     CertificationForm,
@@ -26,6 +29,7 @@ from .matching import match_student, requirements_for, skill_levels_for
 from .models import (
     Application,
     Certification,
+    Notification,
     Opportunity,
     Project,
     RequiredSkill,
@@ -33,6 +37,18 @@ from .models import (
     StudentProfile,
     StudentSkill,
     User,
+)
+from .services import (
+    apply_to_opportunity,
+    close_expired_opportunities,
+    decide_application,
+    delete_empty_opportunity,
+    profile_completeness,
+    recommend_opportunities,
+    set_opportunity_removed,
+    set_user_active,
+    student_improvements,
+    withdraw_application,
 )
 
 
@@ -96,18 +112,21 @@ def dashboard(request):
                 "student_skills": request.user.student_skills.select_related("skill"),
                 "projects": request.user.projects.all(),
                 "certifications": request.user.certifications.all(),
+                "completeness": student_completeness(request.user, profile),
+                "recommendations": recommend_opportunities(request.user, 3),
             },
         )
     if request.user.role == User.Role.FACULTY:
+        close_expired_opportunities()
         return render(
             request,
             "dashboard.html",
-            {"section": "faculty", "opportunities": request.user.opportunities.all()},
+            {"section": "faculty", "opportunities": request.user.opportunities.visible()},
         )
     return HttpResponseForbidden("Your account has no dashboard role.")
 
 
-def edit_form(request, form, title, back="dashboard"):
+def edit_form(request, form, title, back="dashboard", extra=None):
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
@@ -116,13 +135,31 @@ def edit_form(request, form, title, back="dashboard"):
             return redirect(back)
         except IntegrityError:
             form.add_error(None, "This record already exists or conflicts with an existing record.")
-    return render(request, "form.html", {"form": form, "title": title, "back": back})
+    return render(
+        request, "form.html", {"form": form, "title": title, "back": back, **(extra or {})}
+    )
+
+
+def student_completeness(user, profile):
+    return profile_completeness(
+        profile.branch,
+        profile.academic_year,
+        profile.interests,
+        user.student_skills.count(),
+        user.projects.count(),
+        user.certifications.count(),
+    )
 
 
 @role_required("student")
 def profile_edit(request):
     profile, _ = StudentProfile.objects.get_or_create(user=request.user)
-    return edit_form(request, ProfileForm(request.POST or None, instance=profile), "Edit profile")
+    return edit_form(
+        request,
+        ProfileForm(request.POST or None, instance=profile),
+        "Edit profile",
+        extra={"completeness": student_completeness(request.user, profile)},
+    )
 
 
 @role_required("student")
@@ -163,7 +200,7 @@ def student_delete(request, kind, pk):
 @role_required("faculty")
 def opportunity_edit(request, pk=None):
     item = (
-        get_object_or_404(Opportunity, pk=pk, faculty=request.user)
+        get_object_or_404(Opportunity.objects.visible(), pk=pk, faculty=request.user)
         if pk
         else Opportunity(faculty=request.user)
     )
@@ -176,7 +213,9 @@ def opportunity_edit(request, pk=None):
 
 @login_required
 def opportunity_detail(request, pk):
-    item = get_object_or_404(Opportunity.objects.prefetch_related("requirements__skill"), pk=pk)
+    item = get_object_or_404(
+        Opportunity.objects.visible().prefetch_related("requirements__skill"), pk=pk
+    )
     is_student = request.user.role == User.Role.STUDENT and not request.user.is_superuser
     is_owner = request.user.role == User.Role.FACULTY and item.faculty_id == request.user.pk
     if is_student:
@@ -233,6 +272,7 @@ def opportunity_list(request):
     ):
         return HttpResponseForbidden("You do not have access to this page.")
 
+    close_expired_opportunities()
     opportunities = (
         Opportunity.objects.is_open()
         .select_related("faculty")
@@ -290,34 +330,31 @@ def opportunity_list(request):
 @role_required("student")
 @require_POST
 def opportunity_apply(request, pk):
-    item = get_object_or_404(Opportunity, pk=pk)
+    item = get_object_or_404(Opportunity.objects.visible(), pk=pk)
     if item.status == Opportunity.Status.DRAFT:
         raise Http404
-    if not item.is_open:
-        messages.error(request, "Applications are closed for this opportunity.")
-        return redirect("opportunity_detail", pk=item.pk)
-    if Application.objects.filter(student=request.user, opportunity=item).exists():
-        messages.info(request, "You have already applied to this opportunity.")
-        return redirect("opportunity_detail", pk=item.pk)
     try:
-        with transaction.atomic():
-            Application.objects.create(student=request.user, opportunity=item)
-    except IntegrityError:
-        messages.info(request, "You have already applied to this opportunity.")
+        _, created = apply_to_opportunity(request.user, item.pk)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
     else:
-        messages.success(request, "Your application was submitted.")
+        if created:
+            messages.success(request, "Your application was submitted.")
+        else:
+            messages.info(request, "You have already applied to this opportunity.")
     return redirect("opportunity_detail", pk=item.pk)
 
 
 @role_required("faculty")
 def opportunity_applicants(request, pk):
     item = get_object_or_404(
-        Opportunity.objects.prefetch_related("requirements__skill"),
+        Opportunity.objects.visible().prefetch_related("requirements__skill"),
         pk=pk,
         faculty=request.user,
     )
     applications = list(
         Application.objects.filter(opportunity=item)
+        .exclude(status=Application.Status.WITHDRAWN)
         .select_related("student", "student__profile")
         .prefetch_related(
             Prefetch(
@@ -349,21 +386,33 @@ def opportunity_applicants(request, pk):
     return render(
         request,
         "opportunity_applicants.html",
-        {"opportunity": item, "applicants": applicants},
+        {
+            "opportunity": item,
+            "applicants": applicants,
+            "withdrawn": item.applications.filter(
+                status=Application.Status.WITHDRAWN
+            ).select_related("student"),
+        },
     )
 
 
 @role_required("faculty")
 @require_POST
 def opportunity_delete(request, pk):
-    get_object_or_404(Opportunity, pk=pk, faculty=request.user).delete()
+    try:
+        delete_empty_opportunity(request.user, pk)
+    except Opportunity.DoesNotExist as exc:
+        raise Http404 from exc
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect("opportunity_detail", pk=pk)
     messages.success(request, "Opportunity removed.")
     return redirect("dashboard")
 
 
 @role_required("faculty")
 def requirement_edit(request, pk, requirement_id=None):
-    opportunity = get_object_or_404(Opportunity, pk=pk, faculty=request.user)
+    opportunity = get_object_or_404(Opportunity.objects.visible(), pk=pk, faculty=request.user)
     item = (
         get_object_or_404(RequiredSkill, pk=requirement_id, opportunity=opportunity)
         if requirement_id
@@ -388,7 +437,7 @@ def requirement_edit(request, pk, requirement_id=None):
 @role_required("faculty")
 @require_POST
 def requirement_delete(request, pk, requirement_id):
-    opportunity = get_object_or_404(Opportunity, pk=pk, faculty=request.user)
+    opportunity = get_object_or_404(Opportunity.objects.visible(), pk=pk, faculty=request.user)
     get_object_or_404(RequiredSkill, pk=requirement_id, opportunity=opportunity).delete()
     messages.success(request, "Requirement removed.")
     return redirect("opportunity_detail", pk=pk)
@@ -402,3 +451,201 @@ def catalogue_edit(request, pk=None):
         SkillForm(request.POST or None, instance=item),
         "Edit catalogue skill" if pk else "Add catalogue skill",
     )
+
+
+@role_required("student")
+def my_applications(request):
+    applications = request.user.applications.select_related("opportunity").prefetch_related(
+        "opportunity__requirements__skill"
+    )
+    levels = skill_levels_for(request.user)
+    for application in applications:
+        application.fit = match_student(
+            requirements_for(application.opportunity), request.user, skill_levels=levels
+        )
+    return render(request, "my_applications.html", {"applications": applications})
+
+
+@role_required("student")
+@require_POST
+def application_withdraw(request, pk):
+    try:
+        withdraw_application(request.user, pk)
+    except Application.DoesNotExist as exc:
+        raise Http404 from exc
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+    else:
+        messages.success(request, "Application withdrawn.")
+    return redirect("my_applications")
+
+
+@role_required("faculty")
+@require_POST
+def application_decision(request, pk):
+    try:
+        application = decide_application(request.user, pk, request.POST.get("status"))
+    except Application.DoesNotExist as exc:
+        raise Http404 from exc
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        application = get_object_or_404(
+            Application, pk=pk, opportunity__faculty=request.user, opportunity__is_removed=False
+        )
+    else:
+        messages.success(request, "Application decision saved.")
+    return redirect("opportunity_applicants", pk=application.opportunity_id)
+
+
+@role_required("student")
+def notification_inbox(request):
+    page = Paginator(
+        request.user.notifications.select_related("application__opportunity"), 20
+    ).get_page(request.GET.get("page"))
+    return render(request, "notifications.html", {"page_obj": page})
+
+
+@role_required("student")
+@require_POST
+def notification_read(request, pk):
+    notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if notification.read_at is None:
+        notification.read_at = timezone.now()
+        notification.save(update_fields=["read_at"])
+    return redirect("notification_inbox")
+
+
+@role_required("student")
+@require_POST
+def notification_read_all(request):
+    request.user.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
+    return redirect("notification_inbox")
+
+
+@role_required("student")
+def recommendations(request):
+    return render(
+        request,
+        "recommendations.html",
+        {"recommendations": recommend_opportunities(request.user, 10)},
+    )
+
+
+@role_required("student")
+def improvements(request):
+    return render(
+        request, "improvements.html", {"improvements": student_improvements(request.user)}
+    )
+
+
+@role_required("faculty")
+def team_gap(request, pk):
+    opportunity = get_object_or_404(
+        Opportunity.objects.visible().prefetch_related("requirements__skill"),
+        pk=pk,
+        faculty=request.user,
+        type__in=[Opportunity.Type.PROJECT, Opportunity.Type.RESEARCH],
+    )
+    candidates = list(
+        opportunity.applications.exclude(status=Application.Status.WITHDRAWN)
+        .select_related("student")
+        .prefetch_related("student__student_skills")
+    )
+    valid = {item.student_id: item for item in candidates}
+    if "selection" in request.GET:
+        raw = request.GET.getlist("member")
+        if any(not value.isascii() or not value.isdecimal() or len(value) > 20 for value in raw):
+            return HttpResponseBadRequest("Invalid team member selection.")
+        selected = {int(value) for value in raw}
+        if not selected.issubset(valid):
+            return HttpResponseBadRequest("Invalid team member selection.")
+    else:
+        selected = {
+            item.student_id for item in candidates if item.status == Application.Status.SHORTLISTED
+        }
+    members = [
+        TeamMember(
+            item.student_id,
+            item.student.get_full_name().strip() or item.student.username,
+            skill_levels_for(item.student),
+        )
+        for item in candidates
+        if item.student_id in selected
+    ]
+    result = analyze_team_gap(requirements_for(opportunity), members)
+    return render(
+        request,
+        "team_gap.html",
+        {
+            "opportunity": opportunity,
+            "candidates": candidates,
+            "selected": selected,
+            "result": result,
+        },
+    )
+
+
+@role_required("admin")
+def admin_reports(request):
+    visible = Opportunity.objects.visible()
+    application_counts = list(
+        Application.objects.values("status").annotate(total=Count("pk")).order_by("status")
+    )
+    data = {
+        "user_counts": User.objects.values("role", "is_active")
+        .annotate(total=Count("pk"))
+        .order_by("role", "is_active"),
+        "opportunity_status": visible.values("status")
+        .annotate(total=Count("pk"))
+        .order_by("status"),
+        "opportunity_types": visible.values("type").annotate(total=Count("pk")).order_by("type"),
+        "removed_count": Opportunity.objects.filter(is_removed=True).count(),
+        "application_counts": application_counts,
+        "active_skill_count": Skill.objects.filter(active=True).count(),
+        "demanded_skills": Skill.objects.annotate(
+            demand=Count("requiredskill", filter=Q(requiredskill__opportunity__is_removed=False))
+        )
+        .filter(demand__gt=0)
+        .order_by("-demand", "name")[:5],
+    }
+    return render(request, "admin_reports.html", data)
+
+
+@role_required("admin")
+def moderation(request):
+    return render(
+        request,
+        "moderation.html",
+        {
+            "users": User.objects.order_by("username"),
+            "opportunities": Opportunity.objects.select_related("faculty").order_by("-created_at"),
+        },
+    )
+
+
+@role_required("admin")
+@require_POST
+def moderate_user(request, pk):
+    action = request.POST.get("active")
+    if action not in ("0", "1"):
+        return HttpResponseBadRequest("Invalid action.")
+    try:
+        set_user_active(request.user, pk, action == "1")
+    except User.DoesNotExist as exc:
+        raise Http404 from exc
+    messages.success(request, "User status updated.")
+    return redirect("moderation")
+
+
+@role_required("admin")
+@require_POST
+def moderate_opportunity(request, pk):
+    action = request.POST.get("removed")
+    if action not in ("0", "1"):
+        return HttpResponseBadRequest("Invalid action.")
+    try:
+        set_opportunity_removed(request.user, pk, action == "1")
+    except Opportunity.DoesNotExist as exc:
+        raise Http404 from exc
+    messages.success(request, "Opportunity moderation updated.")
+    return redirect("moderation")

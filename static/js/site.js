@@ -63,30 +63,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const dialog = document.getElementById("confirm-dialog");
   let pendingForm = null;
+  let pendingSubmitter = null;
   if (dialog && typeof dialog.showModal === "function") {
     document.querySelectorAll('form[method="post"]').forEach((form) => {
       const action = new URL(form.action, window.location.href).pathname;
       const destructive = action.endsWith("/delete/");
       const applying = action.endsWith("/apply/");
-      if (!destructive && !applying) return;
+      const withdrawing = action.endsWith("/withdraw/");
+      const moderation = form.hasAttribute("data-confirm");
+      if (!destructive && !applying && !withdrawing && !moderation) return;
       form.addEventListener("submit", (event) => {
         if (form.dataset.confirmed === "true") return;
         event.preventDefault();
         pendingForm = form;
-        dialog.querySelector("#confirm-title").textContent = applying ? "Submit your application?" : "Remove this item?";
-        dialog.querySelector("#confirm-description").textContent = applying
+        pendingSubmitter = event.submitter;
+        dialog.returnValue = "";
+        dialog.querySelector("#confirm-title").textContent = applying ? "Submit your application?" : withdrawing ? "Withdraw your application?" : moderation ? "Confirm this change?" : "Remove this item?";
+        dialog.querySelector("#confirm-description").textContent = moderation ? form.dataset.confirm : applying
           ? "Your current profile will be available to the opportunity owner."
+          : withdrawing ? "You can reapply while the opportunity remains open."
           : "This action cannot be undone.";
-        dialog.querySelector('[value="confirm"]').textContent = applying ? "Submit application" : "Remove";
+        dialog.querySelector('[value="confirm"]').textContent = applying ? "Submit application" : withdrawing ? "Withdraw" : moderation ? "Confirm" : "Remove";
         dialog.showModal();
       });
     });
     dialog.addEventListener("close", () => {
       if (dialog.returnValue === "confirm" && pendingForm) {
         pendingForm.dataset.confirmed = "true";
-        pendingForm.requestSubmit();
+        if (pendingSubmitter) pendingForm.requestSubmit(pendingSubmitter);
+        else pendingForm.requestSubmit();
       }
       pendingForm = null;
+      pendingSubmitter = null;
     });
   }
 });
