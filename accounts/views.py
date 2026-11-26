@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from matching import rank_candidates
-from matching.advanced import TeamMember, analyze_team_gap
+from matching.advanced import TeamMember, analyze_team_gap, suggest_improvements
 
 from .forms import (
     ApplicationForm,
@@ -292,7 +292,7 @@ def opportunity_edit(request, pk=None):
 
 
 @login_required
-def opportunity_detail(request, pk):
+def opportunity_detail(request, pk, apply_form=None):
     item = get_object_or_404(
         Opportunity.objects.visible().prefetch_related("requirements__skill"), pk=pk
     )
@@ -313,10 +313,14 @@ def opportunity_detail(request, pk):
     application = None
     fit_groups = []
     has_skills = False
+    boosts = []
+    profile = None
     if is_student:
         levels = skill_levels_for(request.user)
         has_skills = bool(levels)
         fit = match_student(requirements_for(item), request.user, skill_levels=levels)
+        boosts = suggest_improvements(levels, [requirements_for(item)])[:2]
+        profile = getattr(request.user, "profile", None)
         fit_groups = [
             {
                 "label": label,
@@ -340,6 +344,9 @@ def opportunity_detail(request, pk):
             "fit_groups": fit_groups,
             "has_skills": has_skills,
             "application": application,
+            "apply_form": apply_form or ApplicationForm(),
+            "profile": profile,
+            "boosts": boosts,
         },
     )
 
@@ -415,10 +422,7 @@ def opportunity_apply(request, pk):
         raise Http404
     form = ApplicationForm(request.POST, request.FILES)
     if not form.is_valid():
-        for errors in form.errors.values():
-            for error in errors:
-                messages.error(request, error)
-        return redirect("opportunity_detail", pk=item.pk)
+        return opportunity_detail(request, pk=item.pk, apply_form=form)
     try:
         choice = form.cleaned_data["resume_choice"]
         _, created = apply_to_opportunity(
